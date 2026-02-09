@@ -24,7 +24,7 @@ const ENTITY_NAMES = {
   PAYMENT_SERVICE: "PaymentService",
 };
 
-export class MainInfrastructureStack extends cdk.Stack {
+export class Stack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
