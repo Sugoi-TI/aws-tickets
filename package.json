@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "build:shared": "yarn workspace @my-app/shared build",
-    "build": "turbo run build"
+    "build": "turbo run build",
+    "dev:front": "yarn workspace host dev"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.53.1",

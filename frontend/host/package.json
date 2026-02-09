@@ -11,10 +11,15 @@
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.13.2",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.7",
+    "@mui/material": "^7.3.7",
+    "@my-app/shared": "*",
     "aws-amplify": "^6.16.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@my-app/shared": "*"
+    "react-router-dom": "^7.13.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

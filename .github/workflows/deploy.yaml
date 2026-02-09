@@ -1,4 +1,4 @@
-ame: Deploy AWS-TICKETS
+name: Deploy AWS-TICKETS
 
 on:
   push:
@@ -43,5 +43,5 @@ jobs:
 
       - name: CDK Deploy
         run: |
-          cd infrastructure
+          cd stack
           npx aws-cdk deploy --all --require-approval never
