@@ -101,7 +101,7 @@ export class Stack extends cdk.Stack {
     // --- Event Service ---
     const eventService = new nodejs.NodejsFunction(this, ENTITY_NAMES.EVENTS_SERVICE, {
       ...commonLambdaProps,
-      entry: path.join(__dirname, "../../backend/events/src/index.ts"),
+      entry: path.join(__dirname, "../../backend/events-service/src/index.ts"),
       handler: "handler",
       environment: {
         MAIN_TABLE_NAME: mainTable.tableName,
@@ -112,7 +112,7 @@ export class Stack extends cdk.Stack {
     // --- Search Service ---
     const searchService = new nodejs.NodejsFunction(this, ENTITY_NAMES.SEARCH_SERVICE, {
       ...commonLambdaProps,
-      entry: path.join(__dirname, "../../backend/search/src/index.ts"),
+      entry: path.join(__dirname, "../../backend/search-service/src/index.ts"),
       handler: "handler",
       environment: {
         MAIN_TABLE_NAME: mainTable.tableName,
@@ -123,7 +123,7 @@ export class Stack extends cdk.Stack {
     // --- Booking Service ---
     const bookingService = new nodejs.NodejsFunction(this, ENTITY_NAMES.BOOKING_SERVICE, {
       ...commonLambdaProps,
-      entry: path.join(__dirname, "../../backend/booking/src/index.ts"),
+      entry: path.join(__dirname, "../../backend/booking-service/src/index.ts"),
       handler: "handler",
       timeout: cdk.Duration.seconds(10),
       environment: {
@@ -135,7 +135,7 @@ export class Stack extends cdk.Stack {
     // --- Payment Service ---
     const paymentService = new nodejs.NodejsFunction(this, ENTITY_NAMES.PAYMENT_SERVICE, {
       ...commonLambdaProps,
-      entry: path.join(__dirname, "../../backend/payment/src/index.ts"),
+      entry: path.join(__dirname, "../../backend/payment-service/src/index.ts"),
       handler: "handler",
       timeout: cdk.Duration.seconds(10),
     });
