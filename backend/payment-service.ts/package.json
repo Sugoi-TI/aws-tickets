@@ -1,0 +1,25 @@
+{
+  "name": "payments-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "sugoi_ti",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.975.0",
+    "@aws-sdk/client-lambda": "^3.971.0",
+    "@aws-sdk/util-dynamodb": "^3.975.0",
+    "@my-app/shared": "*"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.159",
+    "@types/node": "^25.0.9",
+    "esbuild": "^0.27.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "test": "tsx src/run-local.ts",
+    "build": "esbuild src/index.ts --bundle --minify --platform=node --target=node20 --outfile=dist/index.js --external:@aws-sdk/*"
+  }
+}
