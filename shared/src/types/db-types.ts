@@ -48,6 +48,8 @@ export interface EventItem extends BaseItem {
   gsi1sk: string;
   gsi2pk: `PERFORMER#${string}`;
   gsi2sk: string;
+  gsi3pk: "EVENT";
+  gsi3sk: string; // date
 
   id: string;
   date: string;

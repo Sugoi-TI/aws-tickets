@@ -78,6 +78,13 @@ export class Stack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    mainTable.addGlobalSecondaryIndex({
+      indexName: "GSI3",
+      partitionKey: { name: "gsi3pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "gsi3sk", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // 2.2 Lock Table (Tickets Lock)
     const lockTable = new dynamodb.Table(this, ENTITY_NAMES.LOCK_TABLE, {
       partitionKey: { name: "lockId", type: dynamodb.AttributeType.STRING },
@@ -221,6 +228,10 @@ export class Stack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "MainTableName", {
       value: mainTable.tableName,
+    });
+
+    new cdk.CfnOutput(this, "LockTableName", {
+      value: lockTable.tableName,
     });
   }
 }
