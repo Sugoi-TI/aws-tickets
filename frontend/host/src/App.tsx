@@ -7,7 +7,6 @@ import { EventDetails } from "./components/EventDetails";
 import Box from "@mui/material/Box";
 import type { Event } from "@my-app/shared/src/types/domain-types";
 
-
 function App() {
   return (
     <Authenticator>
