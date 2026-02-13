@@ -38,10 +38,10 @@ const MOCK_EVENTS: Event[] = [
   },
 ];
 
-export const EventsTable = ( ) => {
+export const EventsTable = () => {
   const navigate = useNavigate();
-  
-  const [events, setEvents] = useState<Event[]>([]);
+
+  const [events, setEvents] = useState<Event[]>(MOCK_EVENTS);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRowClick = (eventId: string) => {
@@ -76,24 +76,30 @@ export const EventsTable = ( ) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {isLoading ? "Loading..." : events.map((event) => (
-            <TableRow
-              key={event.id}
-              hover
-              onClick={() => handleRowClick(event.id)}
-              sx={{ cursor: "pointer" }}
-            >
-              <TableCell component="th" scope="row">
-                {new Date(event.date).toLocaleDateString()}
-              </TableCell>
-              <TableCell>{event.name}</TableCell>
-              <TableCell>{event.genre}</TableCell>
-              <TableCell>{event.avenueName}</TableCell>
-              <TableCell align="right">
-                {event.ticketsAvailable} / {event.ticketsTotal}
-              </TableCell>
+          {isLoading ? (
+            <TableRow>
+              <TableCell>"Loading..."</TableCell>
             </TableRow>
-          ))}
+          ) : (
+            events.map((event) => (
+              <TableRow
+                key={event.id}
+                hover
+                onClick={() => handleRowClick(event.id)}
+                sx={{ cursor: "pointer" }}
+              >
+                <TableCell component="th" scope="row">
+                  {new Date(event.date).toLocaleDateString()}
+                </TableCell>
+                <TableCell>{event.name}</TableCell>
+                <TableCell>{event.genre}</TableCell>
+                <TableCell>{event.avenueName}</TableCell>
+                <TableCell align="right">
+                  {event.ticketsAvailable} / {event.ticketsTotal}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
     </TableContainer>
