@@ -7,6 +7,10 @@ import * as nodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as path from "path";
 
 const ENTITY_NAMES = {
@@ -22,6 +26,9 @@ const ENTITY_NAMES = {
   SEARCH_SERVICE: "SearchService",
   BOOKING_SERVICE: "BookingService",
   PAYMENT_SERVICE: "PaymentService",
+
+  FRONTEND_BUCKET: "FrontendBucket",
+  FRONTEND_DISTRIBUTION: "FrontendDistribution",
 };
 
 export class Stack extends cdk.Stack {
@@ -188,6 +195,12 @@ export class Stack extends cdk.Stack {
     });
 
     httpApi.addRoutes({
+      path: "/event/{eventId}",
+      methods: [apigw.HttpMethod.GET],
+      integration: eventIntegration,
+    });
+
+    httpApi.addRoutes({
       path: "/search",
       methods: [apigw.HttpMethod.GET],
       integration: searchIntegration,
@@ -210,12 +223,72 @@ export class Stack extends cdk.Stack {
     });
 
     // ========================================================================
-    // 6. OUTPUTS
+    // 6. FRONTEND (S3 + CloudFront)
+    // ========================================================================
+
+    const frontendBucket = new s3.Bucket(this, ENTITY_NAMES.FRONTEND_BUCKET, {
+      websiteIndexDocument: "index.html",
+      publicReadAccess: true,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: false,
+        blockPublicPolicy: false,
+        ignorePublicAcls: false,
+        restrictPublicBuckets: false,
+      }),
+    });
+
+    new s3deploy.BucketDeployment(this, "FrontendDeployment", {
+      sources: [s3deploy.Source.asset(path.join(__dirname, "../../frontend/host/dist"))],
+      destinationBucket: frontendBucket,
+    });
+
+    const frontendDistribution = new cloudfront.Distribution(
+      this,
+      ENTITY_NAMES.FRONTEND_DISTRIBUTION,
+      {
+        defaultRootObject: "index.html",
+        defaultBehavior: {
+          origin: origins.S3BucketOrigin.withOriginAccessControl(frontendBucket),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          compress: true,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          responseHeadersPolicy: new cloudfront.ResponseHeadersPolicy(scope, `${id}CorsPolicy`, {
+            corsBehavior: {
+              accessControlAllowCredentials: false,
+              accessControlAllowHeaders: ["*"],
+              accessControlAllowMethods: ["GET", "HEAD", "OPTIONS"],
+              accessControlAllowOrigins: ["*"],
+              originOverride: true,
+            },
+          }),
+        },
+        errorResponses: [
+          {
+            httpStatus: 403,
+            responseHttpStatus: 200,
+            responsePagePath: "/index.html",
+          },
+          {
+            httpStatus: 404,
+            responseHttpStatus: 200,
+            responsePagePath: "/index.html",
+          },
+        ],
+      },
+    );
+
+    // ========================================================================
+    // 7. OUTPUTS
     // ========================================================================
 
     new cdk.CfnOutput(this, "ApiUrl", {
       value: httpApi.url!,
       description: "Root URL of the HTTP API",
+    });
+
+    new cdk.CfnOutput(this, "FrontendUrl", {
+      value: `https://${frontendDistribution.distributionDomainName}`,
+      description: "Frontend URL",
     });
 
     new cdk.CfnOutput(this, "UserPoolId", {
