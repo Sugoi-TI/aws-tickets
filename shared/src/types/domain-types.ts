@@ -61,3 +61,21 @@ export interface Ticket {
   seat: string;
   status: "AVAILABLE" | "SOLD" | "RESERVED";
 }
+
+export interface BookingTicket {
+  id: string;
+  seat: string;
+  price: number;
+}
+
+export interface Booking {
+  id: string;
+  userId: string;
+  eventId: string;
+
+  totalPrice: number;
+  status: "CONFIRMED" | "CANCELLED" | "PENDING";
+  createdAt: string;
+
+  tickets: BookingTicket[];
+}

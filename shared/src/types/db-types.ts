@@ -78,11 +78,35 @@ export interface TicketItem extends BaseItem {
   id: string;
   price: number;
   seat: string;
-  status: "AVAILABLE" | "SOLD" | "RESERVED";
+  status: "AVAILABLE" | "SOLD";
 
   eventId: string;
   eventName: string;
 
   ownerEmail?: string;
   purchaseDate?: string;
+}
+
+export interface BookingItem extends BaseItem {
+  entityType: "BOOKING";
+  pk: `BOOKING#${string}`;
+  sk: "META";
+
+  gsi1pk: `USER#${string}`;
+  gsi1sk: string; // createAt
+
+  id: string;
+  userId: string;
+  eventId: string;
+
+  totalPrice: number;
+  status: "CONFIRMED" | "CANCELLED" | "PENDING";
+  createdAt: string;
+
+  // useful to keep some data to show recipe without fetching db twice
+  tickets: Array<{
+    id: string;
+    seat: string;
+    price: number;
+  }>;
 }

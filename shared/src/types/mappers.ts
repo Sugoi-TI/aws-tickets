@@ -1,4 +1,11 @@
-import type { UserItem, AvenueItem, PerformerItem, EventItem, TicketItem } from "./db-types";
+import type {
+  UserItem,
+  AvenueItem,
+  PerformerItem,
+  EventItem,
+  TicketItem,
+  BookingItem,
+} from "./db-types";
 import type {
   User,
   Avenue,
@@ -6,6 +13,7 @@ import type {
   Ticket,
   EventPreview,
   EventDetailsDTO,
+  Booking,
 } from "./domain-types";
 
 export const Mappers = {
@@ -82,6 +90,20 @@ export const Mappers = {
       price: item.price,
       seat: item.seat,
       status: item.status,
+    };
+  },
+
+  toBooking(item: BookingItem): Booking {
+    return {
+      id: item.id,
+      userId: item.userId,
+      eventId: item.eventId,
+
+      totalPrice: item.totalPrice,
+      status: item.status,
+      createdAt: item.createdAt,
+
+      tickets: item.tickets,
     };
   },
 };
