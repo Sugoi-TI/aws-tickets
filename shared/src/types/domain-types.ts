@@ -77,5 +77,7 @@ export interface Booking {
   status: "CONFIRMED" | "CANCELLED" | "PENDING";
   createdAt: string;
 
-  tickets: BookingTicket[];
+  ticketId: string;
+  ticketSeat: string;
+  ticketPrice: number;
 }

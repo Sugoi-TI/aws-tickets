@@ -103,7 +103,9 @@ export const Mappers = {
       status: item.status,
       createdAt: item.createdAt,
 
-      tickets: item.tickets,
+      ticketId: item.ticketId,
+      ticketSeat: item.ticketSeat,
+      ticketPrice: item.ticketPrice,
     };
   },
 };

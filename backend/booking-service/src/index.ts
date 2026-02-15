@@ -1,10 +1,26 @@
 import { DynamoDBClient, ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { DeleteCommand, DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  DeleteCommand,
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  TransactWriteCommand,
+} from "@aws-sdk/lib-dynamodb";
+import { BookingItem } from "@my-app/shared";
 
 type ReservePostDTO = {
   ticketId: string;
   eventId: string;
+};
+
+type PaymentWebhookDTO = {
+  type: string;
+  data: {
+    bookingId: string;
+    transactionId: string;
+    userId?: string;
+  };
 };
 
 const MAIN_TABLE_NAME = process.env.MAIN_TABLE_NAME || "";
@@ -57,6 +73,43 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
       const isoDate = new Date(now).toISOString();
       const ttl = Math.floor(now / 1000) + 600; // 10min
 
+      let ticketPrice: number;
+      let ticketSeat: string;
+      try {
+        const ticketResult = await docClient.send(
+          new GetCommand({
+            TableName: MAIN_TABLE_NAME,
+            Key: { pk: `EVENT#${eventId}`, sk: `TICKET#${ticketId}` },
+          }),
+        );
+
+        if (!ticketResult.Item) {
+          return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ message: "Ticket not found" }),
+          };
+        }
+
+        if (ticketResult.Item.status === "SOLD") {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ message: "Ticket already sold" }),
+          };
+        }
+
+        ticketPrice = ticketResult.Item.price as number;
+        ticketSeat = ticketResult.Item.seat as string;
+      } catch (e) {
+        console.error("Error fetching ticket:", e);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ message: "Failed to fetch ticket" }),
+        };
+      }
+
       try {
         await docClient.send(
           new PutCommand({
@@ -73,16 +126,16 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
         if (ConditionalCheckFailedException.name === e.name) {
           console.error("Error locking ticket, already locked: ", e);
           return {
-            status: 500,
+            statusCode: 409,
             headers,
-            body: JSON.stringify({ message: "something went wrong" }),
+            body: JSON.stringify({ message: "Ticket already reserved" }),
           };
         }
-        console.error("Error locking ticket, something went from: ", e);
+        console.error("Error locking ticket:", e);
         return {
-          status: 500,
+          statusCode: 500,
           headers,
-          body: JSON.stringify({ message: "something went wrong" }),
+          body: JSON.stringify({ message: "Failed to lock ticket" }),
         };
       }
 
@@ -97,13 +150,15 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
               gsi1pk: `USER#${userId}`,
               gsi1sk: isoDate,
 
-              // Данные
               entityType: "BOOKING",
-              ticketId: ticketId,
               eventId: eventId,
+              ticketId: ticketId,
+              ticketSeat: ticketSeat,
+              ticketPrice: ticketPrice,
+              totalPrice: ticketPrice,
               userId: userId,
-              status: "pending",
-              createdAt: now,
+              status: "PENDING",
+              createdAt: isoDate,
               bookingId: bookingId,
 
               ttl: ttl,
@@ -121,18 +176,126 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
         };
       }
 
-      try {
-        // call payment service
-      } catch (e) {
-        console.error("Error creating booking:", e);
-        // set booking as failed
-        await deleteLock(ticketId);
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ bookingId, status: "PENDING", price: ticketPrice }),
+      };
+    }
+  }
+
+  if (method === "POST" && endpoint === "webhook") {
+    const signature = event.headers["x-stripe-signature"];
+
+    if (signature !== "secret-123") {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ message: "Invalid signature" }),
+      };
+    }
+
+    let body: PaymentWebhookDTO;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: "Invalid JSON" }),
+      };
+    }
+
+    if (body.type !== "payment_intent.succeeded") {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ message: "Ignored" }),
+      };
+    }
+
+    const { bookingId, transactionId } = body.data;
+
+    try {
+      const bookingResult = await docClient.send(
+        new GetCommand({
+          TableName: MAIN_TABLE_NAME,
+          Key: { pk: `BOOKING#${bookingId}`, sk: "META" },
+        }),
+      );
+
+      if (!bookingResult.Item) {
         return {
-          statusCode: 500,
+          statusCode: 404,
           headers,
-          body: JSON.stringify({ message: "Failed to reserve ticket" }),
+          body: JSON.stringify({ message: "Booking not found" }),
         };
       }
+
+      const booking = bookingResult.Item as BookingItem;
+
+      if (booking.status === "CONFIRMED") {
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ message: "Already confirmed" }),
+        };
+      }
+
+      const { eventId, userId, ticketId } = booking;
+      const now = Date.now();
+
+      await docClient.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Update: {
+                TableName: MAIN_TABLE_NAME,
+                Key: { pk: `BOOKING#${bookingId}`, sk: "META" },
+                UpdateExpression:
+                  "SET #status = :status, paymentId = :paymentId, paymentDate = :paymentDate REMOVE ttl",
+                ExpressionAttributeNames: { "#status": "status" },
+                ExpressionAttributeValues: {
+                  ":status": "CONFIRMED",
+                  ":paymentId": transactionId,
+                  ":paymentDate": new Date(now).toISOString(),
+                },
+              },
+            },
+            {
+              Update: {
+                TableName: MAIN_TABLE_NAME,
+                Key: { pk: `EVENT#${eventId}`, sk: `TICKET#${ticketId}` },
+                UpdateExpression: "SET #status = :status, gsi1pk = :userPk REMOVE ttl",
+                ExpressionAttributeNames: { "#status": "status" },
+                ExpressionAttributeValues: {
+                  ":status": "SOLD",
+                  ":userPk": `USER#${userId}`,
+                },
+              },
+            },
+            {
+              Delete: {
+                TableName: LOCK_TABLE_NAME,
+                Key: { ticketId },
+              },
+            },
+          ],
+        }),
+      );
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ message: "Success" }),
+      };
+    } catch (e) {
+      console.error("Error processing webhook:", e);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ message: "Processing error" }),
+      };
     }
   }
 

@@ -184,6 +184,7 @@ export class Stack extends cdk.Stack {
     const eventIntegration = new integrations.HttpLambdaIntegration("EventInt", eventService);
     const searchIntegration = new integrations.HttpLambdaIntegration("SearchInt", searchService);
     const bookingIntegration = new integrations.HttpLambdaIntegration("BookingInt", bookingService);
+    const paymentIntegration = new integrations.HttpLambdaIntegration("PaymentInt", paymentService);
 
     // --- ROUTES ---
 
@@ -204,6 +205,18 @@ export class Stack extends cdk.Stack {
       path: "/search",
       methods: [apigw.HttpMethod.GET],
       integration: searchIntegration,
+    });
+
+    httpApi.addRoutes({
+      path: "/pay",
+      methods: [apigw.HttpMethod.POST],
+      integration: paymentIntegration,
+    });
+
+    httpApi.addRoutes({
+      path: "/webhook",
+      methods: [apigw.HttpMethod.POST],
+      integration: bookingIntegration,
     });
 
     // 2. With Auth

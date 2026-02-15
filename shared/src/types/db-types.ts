@@ -103,10 +103,7 @@ export interface BookingItem extends BaseItem {
   status: "CONFIRMED" | "CANCELLED" | "PENDING";
   createdAt: string;
 
-  // useful to keep some data to show recipe without fetching db twice
-  tickets: Array<{
-    id: string;
-    seat: string;
-    price: number;
-  }>;
+  ticketId: string;
+  ticketSeat: string;
+  ticketPrice: number;
 }
