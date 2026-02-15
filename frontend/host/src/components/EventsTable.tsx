@@ -9,9 +9,9 @@ import {
   Paper,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import type { Event } from "@my-app/shared/src/types/domain-types";
+import type { EventPreview } from "@my-app/shared/src/types/domain-types";
 
-const MOCK_EVENTS: Event[] = [
+const MOCK_EVENTS: EventPreview[] = [
   {
     id: "1",
     name: "Rock Concert",
@@ -38,10 +38,12 @@ const MOCK_EVENTS: Event[] = [
   },
 ];
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export const EventsTable = () => {
   const navigate = useNavigate();
 
-  const [events, setEvents] = useState<Event[]>(MOCK_EVENTS);
+  const [events, setEvents] = useState<EventPreview[]>(MOCK_EVENTS);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRowClick = (eventId: string) => {
@@ -51,9 +53,9 @@ export const EventsTable = () => {
   useEffect(() => {
     const fetchEvents = async () => {
       setIsLoading(true);
-      fetch("/tasks")
+      fetch(`${API_URL}/events`)
         .then((res) => res.json())
-        .then((data: Event[]) => {
+        .then((data: EventPreview[]) => {
           setEvents(data);
         })
         .catch((err) => console.error("Failed to load events: ", err))

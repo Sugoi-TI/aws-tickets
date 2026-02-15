@@ -1,5 +1,5 @@
 import { UserItem, AvenueItem, PerformerItem, EventItem, TicketItem } from "./db-types";
-import { User, Avenue, Performer, Ticket, Event } from "./domain-types";
+import { User, Avenue, Performer, Ticket, EventPreview, EventDetailsDTO } from "./domain-types";
 
 export const Mappers = {
   toUser(item: UserItem): User {
@@ -27,7 +27,7 @@ export const Mappers = {
     };
   },
 
-  toEvent(item: EventItem): Event {
+  toEventPreview(item: EventItem): EventPreview {
     return {
       id: item.id,
       name: item.name,
@@ -40,6 +40,24 @@ export const Mappers = {
       performerName: item.performerName,
 
       genre: item.genre,
+      ticketsTotal: item.ticketsTotal,
+      ticketsAvailable: item.ticketsAvailable,
+    };
+  },
+  toEventDetails(item: EventItem): EventDetailsDTO {
+    return {
+      id: item.id,
+      name: item.name,
+      date: item.date,
+      genre: item.genre,
+
+      avenueId: item.avenueId,
+      avenueName: item.avenueName,
+
+      performerId: item.performerId,
+      performerName: item.performerName,
+
+      tickets: item.tickets.map(this.toTicket),
       ticketsTotal: item.ticketsTotal,
       ticketsAvailable: item.ticketsAvailable,
     };

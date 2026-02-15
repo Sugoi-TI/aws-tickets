@@ -5,7 +5,6 @@ import { Header } from "./components/Header";
 import { EventsTable } from "./components/EventsTable";
 import { EventDetails } from "./components/EventDetails";
 import Box from "@mui/material/Box";
-import type { Event } from "@my-app/shared/src/types/domain-types";
 
 function App() {
   return (

@@ -17,7 +17,7 @@ export interface Performer {
   genre: string;
 }
 
-export interface Event {
+export interface EventPreview {
   id: string;
   name: string;
   date: string;
@@ -30,6 +30,23 @@ export interface Event {
 
   performerId: string;
   performerName: string;
+}
+
+export interface EventDetailsDTO {
+  id: string;
+  name: string;
+  date: string;
+  genre: string;
+
+  avenueId: string;
+  avenueName: string;
+
+  performerId: string;
+  performerName: string;
+
+  tickets: Ticket[];
+  ticketsTotal: number;
+  ticketsAvailable: number;
 }
 
 export interface Ticket {
