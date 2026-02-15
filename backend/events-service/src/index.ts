@@ -1,7 +1,13 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { type EventDetailsDTO, type EventItem, type EventPreview, Mappers } from "@my-app/shared";
+import {
+  type EventDetailsDTO,
+  type EventItem,
+  type EventPreview,
+  Mappers,
+  TicketItem,
+} from "@my-app/shared";
 
 const MAIN_TABLE_NAME = process.env.MAIN_TABLE_NAME || "";
 const LOCK_TABLE_NAME = process.env.LOCK_TABLE_NAME || "";
@@ -66,26 +72,19 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
 
   // single event with tickets
   if (method === "GET" && params?.eventId) {
-    const getEventCommand = new GetCommand({
+    const getEventCommand = new QueryCommand({
       TableName: MAIN_TABLE_NAME,
-      Key: {
-        pk: `EVENT#${params.eventId}`,
-        sk: "META",
+      KeyConditionExpression: "pk = :pk",
+      ExpressionAttributeValues: {
+        ":pk": `EVENT#${params.eventId}`,
       },
     });
 
-    let eventDetails: EventDetailsDTO;
+    let items;
 
     try {
       const result = await docClient.send(getEventCommand);
-
-      eventDetails = Mappers.toEventDetails(result.Item as EventItem);
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(eventDetails),
-      };
+      items = (result?.Items as (EventItem | TicketItem)[]) || [];
     } catch (e) {
       console.error("Fetch event error: ", e);
 
@@ -95,6 +94,36 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
         body: JSON.stringify({ message: "Failed to fetch event" }),
       };
     }
+
+    if (!items.length) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: "Event not found" }),
+      };
+    }
+
+    const eventMeta = items.find((item) => item.sk === "META");
+    const tickets = items.filter((item) => item.sk.startsWith("TICKET#")) as TicketItem[];
+
+    if (!eventMeta) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: "Event not found" }),
+      };
+    }
+
+    const eventDetailsWithTickets: EventDetailsDTO = Mappers.toEventDetails({
+      ...eventMeta,
+      tickets: tickets,
+    });
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify(eventDetailsWithTickets),
+    };
   }
 
   return {
