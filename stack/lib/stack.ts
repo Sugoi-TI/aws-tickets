@@ -228,7 +228,7 @@ export class Stack extends cdk.Stack {
     const secureRoutes = [
       { path: "/bookings/pay", method: apigw.HttpMethod.POST },
       { path: "/bookings/reserve", method: apigw.HttpMethod.POST },
-      { path: "/tickets/cancel", method: apigw.HttpMethod.POST },
+      { path: "/bookings/cancel", method: apigw.HttpMethod.POST },
     ];
 
     secureRoutes.forEach((route) => {

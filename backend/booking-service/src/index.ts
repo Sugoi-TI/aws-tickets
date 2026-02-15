@@ -31,12 +31,6 @@ const API_URL = process.env.API_URL || "";
 const MAIN_TABLE_NAME = process.env.MAIN_TABLE_NAME || "";
 const LOCK_TABLE_NAME = process.env.LOCK_TABLE_NAME || "";
 
-const headers = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "OPTIONS,POST,GET",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 
@@ -91,7 +85,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
         if (!ticketResult.Item) {
           return {
             statusCode: 404,
-            headers,
             body: JSON.stringify({ message: "Ticket not found" }),
           };
         }
@@ -99,18 +92,17 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
         if (ticketResult.Item.status === "SOLD") {
           return {
             statusCode: 400,
-            headers,
             body: JSON.stringify({ message: "Ticket already sold" }),
           };
         }
 
+        // TODO proper typing
         ticketPrice = ticketResult.Item.price as number;
         ticketSeat = ticketResult.Item.seat as string;
       } catch (e) {
         console.error("Error fetching ticket:", e);
         return {
           statusCode: 500,
-          headers,
           body: JSON.stringify({ message: "Failed to fetch ticket" }),
         };
       }
@@ -132,14 +124,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
           console.error("Error locking ticket, already locked: ", e);
           return {
             statusCode: 409,
-            headers,
             body: JSON.stringify({ message: "Ticket already reserved" }),
           };
         }
         console.error("Error locking ticket:", e);
         return {
           statusCode: 500,
-          headers,
           body: JSON.stringify({ message: "Failed to lock ticket" }),
         };
       }
@@ -176,14 +166,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
 
         return {
           statusCode: 500,
-          headers,
           body: JSON.stringify({ message: "Failed to reserve ticket" }),
         };
       }
 
       return {
         statusCode: 200,
-        headers,
         body: JSON.stringify({ bookingId, status: "PENDING", price: ticketPrice }),
       };
     }
@@ -206,7 +194,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
         if (!bookingResult.Item) {
           return {
             statusCode: 404,
-            headers,
             body: JSON.stringify({ message: "Booking not found" }),
           };
         }
@@ -216,7 +203,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
         if (booking.status !== "PENDING") {
           return {
             statusCode: 400,
-            headers,
             body: JSON.stringify({ message: "Booking is not pending" }),
           };
         }
@@ -235,14 +221,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
 
         return {
           statusCode: paymentResponse.ok ? 200 : 500,
-          headers,
           body: JSON.stringify(paymentData),
         };
       } catch (e) {
         console.error("Error processing payment:", e);
         return {
           statusCode: 500,
-          headers,
           body: JSON.stringify({ message: "Failed to process payment" }),
         };
       }
@@ -255,7 +239,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
     if (signature !== "secret-123") {
       return {
         statusCode: 403,
-        headers,
         body: JSON.stringify({ message: "Invalid signature" }),
       };
     }
@@ -266,7 +249,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
     } catch {
       return {
         statusCode: 400,
-        headers,
         body: JSON.stringify({ message: "Invalid JSON" }),
       };
     }
@@ -274,7 +256,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
     if (body.type !== "payment_intent.succeeded") {
       return {
         statusCode: 200,
-        headers,
         body: JSON.stringify({ message: "Ignored" }),
       };
     }
@@ -292,7 +273,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
       if (!bookingResult.Item) {
         return {
           statusCode: 404,
-          headers,
           body: JSON.stringify({ message: "Booking not found" }),
         };
       }
@@ -302,7 +282,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
       if (booking.status === "CONFIRMED") {
         return {
           statusCode: 200,
-          headers,
           body: JSON.stringify({ message: "Already confirmed" }),
         };
       }
@@ -351,14 +330,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
 
       return {
         statusCode: 200,
-        headers,
         body: JSON.stringify({ message: "Success" }),
       };
     } catch (e) {
       console.error("Error processing webhook:", e);
       return {
         statusCode: 500,
-        headers,
         body: JSON.stringify({ message: "Processing error" }),
       };
     }
@@ -366,7 +343,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
 
   return {
     statusCode: 500,
-    headers,
     body: JSON.stringify({ message: "Failed to handle request" }),
   };
 }

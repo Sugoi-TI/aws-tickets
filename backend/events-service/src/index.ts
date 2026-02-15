@@ -12,12 +12,6 @@ import {
 const MAIN_TABLE_NAME = process.env.MAIN_TABLE_NAME || "";
 const LOCK_TABLE_NAME = process.env.LOCK_TABLE_NAME || "";
 
-const headers = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "OPTIONS,POST,GET",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 
@@ -58,14 +52,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
 
       return {
         statusCode: 500,
-        headers,
         body: JSON.stringify({ message: "Failed to fetch events" }),
       };
     }
 
     return {
       statusCode: 200,
-      headers,
       body: JSON.stringify(allEvents),
     };
   }
@@ -90,7 +82,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
 
       return {
         statusCode: 500,
-        headers,
         body: JSON.stringify({ message: "Failed to fetch event" }),
       };
     }
@@ -98,7 +89,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
     if (!items.length) {
       return {
         statusCode: 404,
-        headers,
         body: JSON.stringify({ message: "Event not found" }),
       };
     }
@@ -109,7 +99,6 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
     if (!eventMeta) {
       return {
         statusCode: 404,
-        headers,
         body: JSON.stringify({ message: "Event not found" }),
       };
     }
@@ -151,14 +140,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
 
     return {
       statusCode: 200,
-      headers,
       body: JSON.stringify(eventDetailsWithTickets),
     };
   }
 
   return {
     statusCode: 500,
-    headers,
     body: JSON.stringify({ message: "Failed to handle request" }),
   };
 }
