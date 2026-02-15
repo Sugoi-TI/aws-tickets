@@ -1,7 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { EventDetailsDTO, EventItem, EventPreview, Mappers } from "@my-app/shared";
+import { type EventDetailsDTO, type EventItem, type EventPreview, Mappers } from "@my-app/shared";
 
 const MAIN_TABLE_NAME = process.env.MAIN_TABLE_NAME || "";
 const LOCK_TABLE_NAME = process.env.LOCK_TABLE_NAME || "";

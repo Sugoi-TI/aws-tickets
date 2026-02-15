@@ -1,5 +1,12 @@
-import { UserItem, AvenueItem, PerformerItem, EventItem, TicketItem } from "./db-types";
-import { User, Avenue, Performer, Ticket, EventPreview, EventDetailsDTO } from "./domain-types";
+import type { UserItem, AvenueItem, PerformerItem, EventItem, TicketItem } from "./db-types";
+import type {
+  User,
+  Avenue,
+  Performer,
+  Ticket,
+  EventPreview,
+  EventDetailsDTO,
+} from "./domain-types";
 
 export const Mappers = {
   toUser(item: UserItem): User {
