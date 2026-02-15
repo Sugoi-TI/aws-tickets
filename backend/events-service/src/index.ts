@@ -23,14 +23,14 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
     throw new Error("Critical: LOCK_TABLE_NAME is not defined in environment variables");
   }
 
-  console.log(`Received event: ${event}`);
+  console.log(`Received event: ${JSON.stringify(event, null, 2)}`);
 
   const method = event.requestContext?.http?.method;
   const endpoint = event.requestContext.http?.path;
   const params = event.pathParameters;
 
   // all events
-  if (method === "GET" && endpoint === "events") {
+  if (method === "GET" && endpoint === "/events") {
     const getEventsCommand = new QueryCommand({
       TableName: MAIN_TABLE_NAME,
       IndexName: "GSI3",
@@ -96,4 +96,10 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
       };
     }
   }
+
+  return {
+    statusCode: 500,
+    headers,
+    body: JSON.stringify({ message: "Failed to handle request" }),
+  };
 }
