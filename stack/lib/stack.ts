@@ -252,7 +252,7 @@ export class Stack extends cdk.Stack {
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           compress: true,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-          responseHeadersPolicy: new cloudfront.ResponseHeadersPolicy(scope, `${id}CorsPolicy`, {
+          responseHeadersPolicy: new cloudfront.ResponseHeadersPolicy(this, `${id}CorsPolicy`, {
             corsBehavior: {
               accessControlAllowCredentials: false,
               accessControlAllowHeaders: ["*"],
