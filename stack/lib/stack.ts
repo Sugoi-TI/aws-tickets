@@ -106,7 +106,13 @@ export class Stack extends cdk.Stack {
     const httpApi = new apigw.HttpApi(this, ENTITY_NAMES.API_GATEWAY, {
       description: "API",
       corsPreflight: {
-        allowHeaders: ["Authorization", "*"],
+        allowHeaders: [
+          "Content-Type",
+          "Authorization",
+          "X-Amz-Date",
+          "X-Api-Key",
+          "X-Amz-Security-Token",
+        ],
         allowMethods: [
           apigw.CorsHttpMethod.GET,
           apigw.CorsHttpMethod.POST,
