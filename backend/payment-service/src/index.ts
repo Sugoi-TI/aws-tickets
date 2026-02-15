@@ -18,7 +18,7 @@ export async function handler(event: APIGatewayProxyEventV2) {
   const method = event.requestContext?.http?.method;
   const endpoint = event.requestContext.http?.path;
 
-  if (method === "POST" && endpoint === "/pay") {
+  if (method === "POST" && endpoint === "/stripe/pay") {
     if (event.body) {
       const body = JSON.parse(event.body) as PayPostDTO;
       const { bookingId, amount, webhookUrl } = body;

@@ -14,6 +14,10 @@ type ReservePostDTO = {
   eventId: string;
 };
 
+type PayPostDTO = {
+  bookingId: string;
+};
+
 type PaymentWebhookDTO = {
   type: string;
   data: {
@@ -23,6 +27,7 @@ type PaymentWebhookDTO = {
   };
 };
 
+const API_URL = process.env.API_URL || "";
 const MAIN_TABLE_NAME = process.env.MAIN_TABLE_NAME || "";
 const LOCK_TABLE_NAME = process.env.LOCK_TABLE_NAME || "";
 
@@ -62,7 +67,7 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
   const endpoint = event.requestContext.http?.path;
   const params = event.pathParameters;
 
-  if (method === "POST" && endpoint === "reserve") {
+  if (method === "POST" && endpoint === "/bookings/reserve") {
     if (event.body) {
       const body = JSON.parse(event.body) as ReservePostDTO;
       const { ticketId, eventId } = body;
@@ -184,7 +189,67 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
     }
   }
 
-  if (method === "POST" && endpoint === "webhook") {
+  // PAY ENDPOINT
+  if (method === "POST" && endpoint === "/bookings/pay") {
+    if (event.body) {
+      const body = JSON.parse(event.body) as PayPostDTO;
+      const { bookingId } = body;
+
+      try {
+        const bookingResult = await docClient.send(
+          new GetCommand({
+            TableName: MAIN_TABLE_NAME,
+            Key: { pk: `BOOKING#${bookingId}`, sk: "META" },
+          }),
+        );
+
+        if (!bookingResult.Item) {
+          return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ message: "Booking not found" }),
+          };
+        }
+
+        const booking = bookingResult.Item as BookingItem;
+
+        if (booking.status !== "PENDING") {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ message: "Booking is not pending" }),
+          };
+        }
+
+        const paymentResponse = await fetch(`${API_URL}/stripe/pay`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingId,
+            amount: booking.totalPrice,
+            webhookUrl: `${API_URL}/bookings/webhook`,
+          }),
+        });
+
+        const paymentData = await paymentResponse.json();
+
+        return {
+          statusCode: paymentResponse.ok ? 200 : 500,
+          headers,
+          body: JSON.stringify(paymentData),
+        };
+      } catch (e) {
+        console.error("Error processing payment:", e);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ message: "Failed to process payment" }),
+        };
+      }
+    }
+  }
+
+  if (method === "POST" && endpoint === "/bookings/webhook") {
     const signature = event.headers["x-stripe-signature"];
 
     if (signature !== "secret-123") {

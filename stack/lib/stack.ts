@@ -100,7 +100,24 @@ export class Stack extends cdk.Stack {
     });
 
     // ========================================================================
-    // 3. LAMBDA FUNCTIONS (Services)
+    // 3. API GATEWAY (HTTP API) - Defined early for environment variables
+    // ========================================================================
+
+    const httpApi = new apigw.HttpApi(this, ENTITY_NAMES.API_GATEWAY, {
+      description: "API",
+      corsPreflight: {
+        allowHeaders: ["Authorization", "*"],
+        allowMethods: [
+          apigw.CorsHttpMethod.GET,
+          apigw.CorsHttpMethod.POST,
+          apigw.CorsHttpMethod.OPTIONS,
+        ],
+        allowOrigins: ["*"], // TODO replace with proper domain
+      },
+    });
+
+    // ========================================================================
+    // 4. LAMBDA FUNCTIONS (Services)
     // ========================================================================
 
     const commonLambdaProps = {
@@ -143,6 +160,7 @@ export class Stack extends cdk.Stack {
       environment: {
         MAIN_TABLE_NAME: mainTable.tableName,
         LOCK_TABLE_NAME: lockTable.tableName,
+        API_URL: httpApi.url!,
       },
     });
 
@@ -155,7 +173,7 @@ export class Stack extends cdk.Stack {
     });
 
     // ========================================================================
-    // 4. PERMISSIONS (IAM)
+    // 5. PERMISSIONS (IAM)
     // ========================================================================
 
     mainTable.grantReadData(eventService);
@@ -165,21 +183,8 @@ export class Stack extends cdk.Stack {
     lockTable.grantReadWriteData(bookingService);
 
     // ========================================================================
-    // 5. API GATEWAY (HTTP API)
+    // 6. API GATEWAY ROUTES
     // ========================================================================
-
-    const httpApi = new apigw.HttpApi(this, ENTITY_NAMES.API_GATEWAY, {
-      description: "API",
-      corsPreflight: {
-        allowHeaders: ["Authorization", "*"],
-        allowMethods: [
-          apigw.CorsHttpMethod.GET,
-          apigw.CorsHttpMethod.POST,
-          apigw.CorsHttpMethod.OPTIONS,
-        ],
-        allowOrigins: ["*"], // TODO replace with proper domain
-      },
-    });
 
     const eventIntegration = new integrations.HttpLambdaIntegration("EventInt", eventService);
     const searchIntegration = new integrations.HttpLambdaIntegration("SearchInt", searchService);
@@ -208,22 +213,22 @@ export class Stack extends cdk.Stack {
     });
 
     httpApi.addRoutes({
-      path: "/pay",
+      path: "/stripe/pay",
       methods: [apigw.HttpMethod.POST],
       integration: paymentIntegration,
     });
 
     httpApi.addRoutes({
-      path: "/webhook",
+      path: "/bookings/webhook",
       methods: [apigw.HttpMethod.POST],
       integration: bookingIntegration,
     });
 
     // 2. With Auth
     const secureRoutes = [
-      { path: "/tickets/reserve", method: apigw.HttpMethod.POST },
+      { path: "/bookings/pay", method: apigw.HttpMethod.POST },
+      { path: "/bookings/reserve", method: apigw.HttpMethod.POST },
       { path: "/tickets/cancel", method: apigw.HttpMethod.POST },
-      { path: "/tickets/buy", method: apigw.HttpMethod.POST },
     ];
 
     secureRoutes.forEach((route) => {

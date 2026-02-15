@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, BatchGetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import {
   type EventDetailsDTO,
@@ -114,10 +114,40 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
       };
     }
 
-    const eventDetailsWithTickets: EventDetailsDTO = Mappers.toEventDetails({
-      ...eventMeta,
-      tickets: tickets,
-    });
+    // Check LockTable for reserved tickets
+    const ticketIds = tickets.map((t) => t.id);
+
+    let lockedTicketIds: string[] = [];
+    if (ticketIds.length > 0) {
+      try {
+        const lockKeys = ticketIds.map((id) => ({ ticketId: id }));
+        const lockResult = await docClient.send(
+          new BatchGetCommand({
+            RequestItems: {
+              [LOCK_TABLE_NAME]: { Keys: lockKeys },
+            },
+          }),
+        );
+
+        const locks = lockResult.Responses?.[LOCK_TABLE_NAME] || [];
+        lockedTicketIds = locks.map((lock) => lock.ticketId as string);
+      } catch (e) {
+        console.error("Error fetching locks:", e);
+      }
+    }
+
+    // TODO optimize
+    const mappedTickets = tickets.map(Mappers.toTicket);
+
+    const ticketsWithStatus = mappedTickets.map((ticket) => ({
+      ...ticket,
+      status: lockedTicketIds.includes(ticket.id) ? "RESERVED" : ticket.status,
+    }));
+
+    const eventDetailsWithTickets: EventDetailsDTO = {
+      ...Mappers.toEventDetails(eventMeta),
+      tickets: ticketsWithStatus,
+    };
 
     return {
       statusCode: 200,

@@ -56,7 +56,6 @@ export interface EventItem extends BaseItem {
   name: string;
   genre: string;
 
-  tickets: TicketItem[];
   ticketsAvailable: number;
   ticketsTotal: number;
 

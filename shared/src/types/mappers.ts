@@ -72,9 +72,9 @@ export const Mappers = {
       performerId: item.performerId,
       performerName: item.performerName,
 
-      tickets: item.tickets.map(this.toTicket),
       ticketsTotal: item.ticketsTotal,
       ticketsAvailable: item.ticketsAvailable,
+      tickets: [], // TODO update type
     };
   },
 
