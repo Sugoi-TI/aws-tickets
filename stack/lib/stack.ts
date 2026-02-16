@@ -187,6 +187,7 @@ export class Stack extends cdk.Stack {
 
     mainTable.grantReadWriteData(bookingService);
     lockTable.grantReadWriteData(bookingService);
+    lockTable.grantReadData(eventService);
 
     // ========================================================================
     // 6. API GATEWAY ROUTES
