@@ -71,7 +71,7 @@ export async function handler(event: APIGatewayProxyEventV2) {
 
       await lambdaClient.send(
         new InvokeCommand({
-          FunctionName: process.env.AWS_LAMBDA_FUNCTION_NAME,
+          FunctionName: process.env.AWS_LAMBDA_FUNCTION_NAME!,
           InvocationType: "Event",
           Payload: JSON.stringify({
             requestContext: event.requestContext,
