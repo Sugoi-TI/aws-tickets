@@ -23,6 +23,7 @@ export const EventDetails: React.FC = () => {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isReserving, setIsReserving] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [bookingState, setBookingState] = useState<BookingState>({
     bookingId: null,
     ticketId: null,
@@ -113,6 +114,7 @@ export const EventDetails: React.FC = () => {
     if (!bookingState.bookingId) return;
 
     setIsPaying(true);
+    setIsProcessingPayment(true);
     setError(null);
 
     try {
@@ -133,14 +135,50 @@ export const EventDetails: React.FC = () => {
         throw new Error(data.message || "Failed to process payment");
       }
 
-      setBookingState({ bookingId: null, ticketId: null, price: null });
-      await fetchEvent();
+      const pollingResult = await pollBookingStatus(bookingState.bookingId, token);
+
+      if (pollingResult === "CONFIRMED") {
+        setBookingState({ bookingId: null, ticketId: null, price: null });
+        await fetchEvent();
+      } else {
+        throw new Error("Payment processing timed out. Please try again.");
+      }
     } catch (err) {
       console.error("Pay error:", err);
       setError(err instanceof Error ? err.message : "Failed to process payment");
     } finally {
       setIsPaying(false);
+      setIsProcessingPayment(false);
     }
+  };
+
+  const pollBookingStatus = async (
+    bookingId: string,
+    token: string,
+    maxAttempts = 15,
+  ): Promise<string> => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      try {
+        const res = await fetch(`${API_URL}/bookings/${bookingId}`, {
+          headers: {
+            Authorization: token,
+          },
+        });
+
+        if (!res.ok) continue;
+
+        const data = await res.json();
+
+        if (data.status === "CONFIRMED") {
+          return data.status;
+        }
+      } catch (e) {
+        console.error("Polling error:", e);
+      }
+    }
+    return "PENDING";
   };
 
   if (isLoading) {
@@ -236,7 +274,7 @@ export const EventDetails: React.FC = () => {
       <Box sx={{ display: "flex", gap: 2 }}>
         {bookingState.bookingId ? (
           <Button variant="contained" color="primary" onClick={handlePay} disabled={isPaying}>
-            {isPaying ? "Processing..." : `Pay $${bookingState.price}`}
+            {isProcessingPayment ? "Processing payment..." : `Pay $${bookingState.price}`}
           </Button>
         ) : (
           <Button
@@ -250,9 +288,15 @@ export const EventDetails: React.FC = () => {
         )}
       </Box>
 
-      {bookingState.bookingId && (
+      {bookingState.bookingId && !isProcessingPayment && (
         <Typography sx={{ mt: 2, color: "success.main" }}>
           Ticket reserved! Please proceed to payment.
+        </Typography>
+      )}
+
+      {isProcessingPayment && (
+        <Typography sx={{ mt: 2, color: "info.main" }}>
+          Payment is being processed. Please wait...
         </Typography>
       )}
     </Box>
