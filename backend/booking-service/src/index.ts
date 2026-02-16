@@ -377,7 +377,7 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
             {
               Delete: {
                 TableName: LOCK_TABLE_NAME,
-                Key: { ticketId },
+                Key: { lockId: ticketId },
               },
             },
           ],
