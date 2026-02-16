@@ -109,7 +109,7 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
     let lockedTicketIds: string[] = [];
     if (ticketIds.length > 0) {
       try {
-        const lockKeys = ticketIds.map((id) => ({ ticketId: id }));
+        const lockKeys = ticketIds.map((id) => ({ lockId: id }));
         const lockResult = await docClient.send(
           new BatchGetCommand({
             RequestItems: {
@@ -119,7 +119,7 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
         );
 
         const locks = lockResult.Responses?.[LOCK_TABLE_NAME] || [];
-        lockedTicketIds = locks.map((lock) => lock.ticketId as string);
+        lockedTicketIds = locks.map((lock) => lock.lockId as string);
       } catch (e) {
         console.error("Error fetching locks:", e);
       }
