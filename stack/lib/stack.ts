@@ -176,11 +176,16 @@ export class Stack extends cdk.Stack {
       entry: path.join(__dirname, "../../backend/payment-service/src/index.ts"),
       handler: "handler",
       timeout: cdk.Duration.seconds(10),
+      environment: {
+        AWS_LAMBDA_FUNCTION_NAME: ENTITY_NAMES.PAYMENT_SERVICE,
+      },
     });
 
     // ========================================================================
     // 5. PERMISSIONS (IAM)
     // ========================================================================
+
+    paymentService.grantInvoke(paymentService);
 
     mainTable.grantReadData(eventService);
     mainTable.grantReadData(searchService);
