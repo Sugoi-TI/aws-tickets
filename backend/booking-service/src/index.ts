@@ -112,10 +112,10 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
           new PutCommand({
             TableName: LOCK_TABLE_NAME,
             Item: {
-              ticketId,
+              lockId: ticketId,
               ttl,
             },
-            ConditionExpression: "attribute_not_exists(ticketId)",
+            ConditionExpression: "attribute_not_exists(lockId)",
           }),
         );
       } catch (e) {
