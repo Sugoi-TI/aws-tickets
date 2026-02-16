@@ -125,12 +125,12 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
       }
     }
 
-    // TODO optimize
+    const lockedTicketSet = new Set(lockedTicketIds);
     const mappedTickets = tickets.map(Mappers.toTicket);
 
     const ticketsWithStatus = mappedTickets.map((ticket) => ({
       ...ticket,
-      status: lockedTicketIds.includes(ticket.id) ? "RESERVED" : ticket.status,
+      status: lockedTicketSet.has(ticket.id) ? "RESERVED" : ticket.status,
     }));
 
     const eventDetailsWithTickets: EventDetailsDTO = {

@@ -7,7 +7,7 @@ import {
   PutCommand,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { BookingItem } from "@my-app/shared";
+import { BookingItem, TicketItem } from "@my-app/shared";
 
 type ReservePostDTO = {
   ticketId: string;
@@ -96,9 +96,17 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
           };
         }
 
-        // TODO proper typing
-        ticketPrice = ticketResult.Item.price as number;
-        ticketSeat = ticketResult.Item.seat as string;
+        const ticket = ticketResult.Item as TicketItem;
+
+        if (ticket.status === "SOLD") {
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ message: "Ticket already sold" }),
+          };
+        }
+
+        ticketPrice = ticket.price;
+        ticketSeat = ticket.seat;
       } catch (e) {
         console.error("Error fetching ticket:", e);
         return {
@@ -178,7 +186,7 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
   }
 
   // GET BOOKING STATUS
-  if (method === "GET" && endpoint?.match(/^\/bookings\/[^/]+$/)) {
+  if (method === "GET" && endpoint?.startsWith("/bookings/")) {
     const bookingId = params?.bookingId;
 
     if (!bookingId) {
