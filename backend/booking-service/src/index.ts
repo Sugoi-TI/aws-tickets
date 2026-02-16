@@ -297,7 +297,7 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
                 TableName: MAIN_TABLE_NAME,
                 Key: { pk: `BOOKING#${bookingId}`, sk: "META" },
                 UpdateExpression:
-                  "SET #status = :status, paymentId = :paymentId, paymentDate = :paymentDate REMOVE ttl",
+                  "SET #status = :status, paymentId = :paymentId, paymentDate = :paymentDate",
                 ExpressionAttributeNames: { "#status": "status" },
                 ExpressionAttributeValues: {
                   ":status": "CONFIRMED",
@@ -310,7 +310,7 @@ export async function handler(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
               Update: {
                 TableName: MAIN_TABLE_NAME,
                 Key: { pk: `EVENT#${eventId}`, sk: `TICKET#${ticketId}` },
-                UpdateExpression: "SET #status = :status, gsi1pk = :userPk REMOVE ttl",
+                UpdateExpression: "SET #status = :status, gsi1pk = :userPk",
                 ExpressionAttributeNames: { "#status": "status" },
                 ExpressionAttributeValues: {
                   ":status": "SOLD",
