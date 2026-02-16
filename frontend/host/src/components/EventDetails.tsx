@@ -157,6 +157,8 @@ export const EventDetails: React.FC = () => {
     token: string,
     maxAttempts = 15,
   ): Promise<string> => {
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 

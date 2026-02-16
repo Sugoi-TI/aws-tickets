@@ -182,8 +182,6 @@ export class Stack extends cdk.Stack {
     // 5. PERMISSIONS (IAM)
     // ========================================================================
 
-    paymentService.grantInvoke(paymentService);
-
     mainTable.grantReadData(eventService);
     mainTable.grantReadData(searchService);
 
