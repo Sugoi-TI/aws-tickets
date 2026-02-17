@@ -1,5 +1,10 @@
 import { mockClient } from "aws-sdk-client-mock";
-import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  QueryCommand,
+  TransactWriteCommand,
+} from "@aws-sdk/lib-dynamodb";
 import { vi, beforeEach, describe, it, expect } from "vitest";
 
 vi.stubEnv("MAIN_TABLE_NAME", "MainTable");
@@ -126,7 +131,6 @@ describe("handleWebhook", () => {
         status: "CONFIRMED",
         eventId: "event-1",
         userId: "user-123",
-        ticketId: "ticket-1",
       },
     });
 
@@ -160,8 +164,20 @@ describe("handleWebhook", () => {
         status: "PENDING",
         eventId: "event-1",
         userId: "user-123",
-        ticketId: "ticket-1",
       },
+    });
+
+    mockDocClient.on(QueryCommand).resolves({
+      Items: [
+        {
+          pk: "BOOKING#booking-123",
+          sk: "TICKET#ticket-1",
+          ticketId: "ticket-1",
+          seat: "A1",
+          price: 100,
+          eventId: "event-1",
+        },
+      ],
     });
 
     mockDocClient.on(TransactWriteCommand).resolves({});

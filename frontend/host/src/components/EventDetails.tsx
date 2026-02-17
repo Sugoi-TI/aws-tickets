@@ -11,7 +11,6 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 type BookingState = {
   bookingId: string | null;
-  ticketId: string | null;
   price: number | null;
 };
 
@@ -20,13 +19,12 @@ export const EventDetails: React.FC = () => {
 
   const [event, setEvent] = useState<EventDetailsDTO>();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
   const [isReserving, setIsReserving] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [bookingState, setBookingState] = useState<BookingState>({
     bookingId: null,
-    ticketId: null,
     price: null,
   });
   const [error, setError] = useState<string | null>(null);
@@ -51,16 +49,21 @@ export const EventDetails: React.FC = () => {
 
   const handleSelectSeat = (ticket: Ticket) => {
     if (ticket.status === "AVAILABLE") {
-      setSelectedTicketId(ticket.id);
+      setSelectedTicketIds((prev) => {
+        if (prev.includes(ticket.id)) {
+          return prev.filter((id) => id !== ticket.id);
+        }
+        return [...prev, ticket.id];
+      });
       setError(null);
     }
   };
 
   const getSeatColor = (ticket: Ticket): string => {
-    if (ticket.id === selectedTicketId) return "#2196F3"; // Blue - selected
-    if (ticket.status === "AVAILABLE") return "#4CAF50"; // Green
-    if (ticket.status === "RESERVED") return "#FFC107"; // Yellow
-    if (ticket.status === "SOLD") return "#F44336"; // Red
+    if (selectedTicketIds.includes(ticket.id)) return "#2196F3";
+    if (ticket.status === "AVAILABLE") return "#4CAF50";
+    if (ticket.status === "RESERVED") return "#FFC107";
+    if (ticket.status === "SOLD") return "#F44336";
     return "#9E9E9E";
   };
 
@@ -69,8 +72,15 @@ export const EventDetails: React.FC = () => {
     return session.tokens?.accessToken?.toString() || "";
   };
 
+  const getTotalPrice = (): number => {
+    if (!event) return 0;
+    return event.tickets
+      .filter((t) => selectedTicketIds.includes(t.id))
+      .reduce((sum, t) => sum + t.price, 0);
+  };
+
   const handleReserve = async () => {
-    if (!selectedTicketId || !event) return;
+    if (selectedTicketIds.length === 0 || !event) return;
 
     setIsReserving(true);
     setError(null);
@@ -84,7 +94,7 @@ export const EventDetails: React.FC = () => {
           Authorization: token,
         },
         body: JSON.stringify({
-          ticketId: selectedTicketId,
+          ticketIds: selectedTicketIds,
           eventId: event.id,
         }),
       });
@@ -92,19 +102,18 @@ export const EventDetails: React.FC = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Failed to reserve ticket");
+        throw new Error(data.message || "Failed to reserve tickets");
       }
 
       setBookingState({
         bookingId: data.bookingId,
-        ticketId: selectedTicketId,
         price: data.price,
       });
-      setSelectedTicketId(null);
+      setSelectedTicketIds([]);
       await fetchEvent();
     } catch (err) {
       console.error("Reserve error:", err);
-      setError(err instanceof Error ? err.message : "Failed to reserve ticket");
+      setError(err instanceof Error ? err.message : "Failed to reserve tickets");
     } finally {
       setIsReserving(false);
     }
@@ -138,7 +147,7 @@ export const EventDetails: React.FC = () => {
       const pollingResult = await pollBookingStatus(bookingState.bookingId, token);
 
       if (pollingResult === "CONFIRMED") {
-        setBookingState({ bookingId: null, ticketId: null, price: null });
+        setBookingState({ bookingId: null, price: null });
         await fetchEvent();
       } else {
         throw new Error("Payment processing timed out. Please try again.");
@@ -199,6 +208,8 @@ export const EventDetails: React.FC = () => {
     );
   }
 
+  const totalPrice = getTotalPrice();
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
@@ -216,7 +227,7 @@ export const EventDetails: React.FC = () => {
 
       <Box sx={{ mt: 3, mb: 2 }}>
         <Typography variant="h6" gutterBottom>
-          Select a Seat
+          Select Seats
         </Typography>
 
         <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
@@ -254,7 +265,7 @@ export const EventDetails: React.FC = () => {
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: ticket.status === "AVAILABLE" ? "pointer" : "default",
-                border: ticket.id === selectedTicketId ? "3px solid #000" : "1px solid #000",
+                border: selectedTicketIds.includes(ticket.id) ? "3px solid #000" : "1px solid #000",
                 borderRadius: 1,
                 fontSize: 10,
                 color: "#fff",
@@ -266,6 +277,12 @@ export const EventDetails: React.FC = () => {
           ))}
         </Paper>
       </Box>
+
+      {selectedTicketIds.length > 0 && (
+        <Typography variant="body1" sx={{ mb: 2 }}>
+          Selected: {selectedTicketIds.length} ticket(s) - Total: ${totalPrice}
+        </Typography>
+      )}
 
       {error && (
         <Typography color="error" sx={{ mb: 2 }}>
@@ -283,16 +300,16 @@ export const EventDetails: React.FC = () => {
             variant="contained"
             color="success"
             onClick={handleReserve}
-            disabled={!selectedTicketId || isReserving}
+            disabled={selectedTicketIds.length === 0 || isReserving}
           >
-            {isReserving ? "Reserving..." : "Reserve"}
+            {isReserving ? "Reserving..." : `Reserve (${selectedTicketIds.length})`}
           </Button>
         )}
       </Box>
 
       {bookingState.bookingId && !isProcessingPayment && (
         <Typography sx={{ mt: 2, color: "success.main" }}>
-          Ticket reserved! Please proceed to payment.
+          Tickets reserved! Please proceed to payment.
         </Typography>
       )}
 

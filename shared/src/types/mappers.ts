@@ -98,14 +98,10 @@ export const Mappers = {
       id: item.id,
       userId: item.userId,
       eventId: item.eventId,
-
       totalPrice: item.totalPrice,
       status: item.status,
       createdAt: item.createdAt,
-
-      ticketId: item.ticketId,
-      ticketSeat: item.ticketSeat,
-      ticketPrice: item.ticketPrice,
+      tickets: [],
     };
   },
 };

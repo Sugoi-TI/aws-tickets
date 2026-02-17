@@ -1,5 +1,5 @@
 import { mockClient } from "aws-sdk-client-mock";
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { vi, beforeEach, describe, it, expect } from "vitest";
 
 vi.stubEnv("MAIN_TABLE_NAME", "MainTable");
@@ -45,7 +45,7 @@ describe("getBooking", () => {
       pathParameters: { bookingId: "booking-123" },
     } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer;
 
-    mockDocClient.on(GetCommand).resolves({});
+    mockDocClient.on(QueryCommand).resolves({ Items: [] });
 
     const response = await getBooking(mockEvent);
 
@@ -65,19 +65,27 @@ describe("getBooking", () => {
       pathParameters: { bookingId: "booking-123" },
     } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer;
 
-    mockDocClient.on(GetCommand).resolves({
-      Item: {
-        pk: "BOOKING#booking-123",
-        sk: "META",
-        id: "booking-123",
-        eventId: "event-1",
-        ticketId: "ticket-1",
-        ticketSeat: "A1",
-        totalPrice: 100,
-        status: "PENDING",
-        userId: "user-123",
-        createdAt: "2024-01-01T00:00:00Z",
-      },
+    mockDocClient.on(QueryCommand).resolves({
+      Items: [
+        {
+          pk: "BOOKING#booking-123",
+          sk: "META",
+          id: "booking-123",
+          eventId: "event-1",
+          userId: "user-123",
+          totalPrice: 100,
+          status: "PENDING",
+          createdAt: "2024-01-01T00:00:00Z",
+        },
+        {
+          pk: "BOOKING#booking-123",
+          sk: "TICKET#ticket-1",
+          ticketId: "ticket-1",
+          seat: "A1",
+          price: 100,
+          eventId: "event-1",
+        },
+      ],
     });
 
     const response = await getBooking(mockEvent);
@@ -86,7 +94,8 @@ describe("getBooking", () => {
     const body = JSON.parse(response.body);
     expect(body.bookingId).toBe("booking-123");
     expect(body.status).toBe("PENDING");
-    expect(body.ticketSeat).toBe("A1");
+    expect(body.tickets).toHaveLength(1);
+    expect(body.tickets[0].seat).toBe("A1");
     expect(body.totalPrice).toBe(100);
   });
 
@@ -101,7 +110,7 @@ describe("getBooking", () => {
       pathParameters: { bookingId: "booking-123" },
     } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer;
 
-    mockDocClient.on(GetCommand).rejects(new Error("DynamoDB error"));
+    mockDocClient.on(QueryCommand).rejects(new Error("DynamoDB error"));
 
     const response = await getBooking(mockEvent);
 

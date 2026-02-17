@@ -92,7 +92,7 @@ export interface BookingItem extends BaseItem {
   sk: "META";
 
   gsi1pk: `USER#${string}`;
-  gsi1sk: string; // createAt
+  gsi1sk: string;
 
   id: string;
   userId: string;
@@ -101,8 +101,15 @@ export interface BookingItem extends BaseItem {
   totalPrice: number;
   status: "CONFIRMED" | "CANCELLED" | "PENDING";
   createdAt: string;
+}
+
+export interface BookingTicketItem extends BaseItem {
+  entityType: "BOOKING_TICKET";
+  pk: `BOOKING#${string}`;
+  sk: `TICKET#${string}`;
 
   ticketId: string;
-  ticketSeat: string;
-  ticketPrice: number;
+  seat: string;
+  price: number;
+  eventId: string;
 }

@@ -16,7 +16,7 @@ const client = new DynamoDBClient({});
 export const docClient = DynamoDBDocumentClient.from(client);
 
 export type ReservePostDTO = {
-  ticketId: string;
+  ticketIds: string[];
   eventId: string;
 };
 

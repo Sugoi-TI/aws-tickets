@@ -1,6 +1,6 @@
-import { GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, QueryCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { type BookingItem } from "@my-app/shared";
+import { type BookingItem, type BookingTicketItem } from "@my-app/shared";
 import { LOCK_TABLE_NAME, MAIN_TABLE_NAME, type PaymentWebhookDTO, docClient } from "../utils";
 
 export async function handleWebhook(event: APIGatewayProxyEventV2WithJWTAuthorizer) {
@@ -56,45 +56,59 @@ export async function handleWebhook(event: APIGatewayProxyEventV2WithJWTAuthoriz
       };
     }
 
-    const { eventId, userId, ticketId } = booking;
+    const ticketsResult = await docClient.send(
+      new QueryCommand({
+        TableName: MAIN_TABLE_NAME,
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+        ExpressionAttributeValues: {
+          ":pk": `BOOKING#${bookingId}`,
+          ":sk": "TICKET#",
+        },
+      }),
+    );
+
+    const ticketItems = (ticketsResult.Items || []) as BookingTicketItem[];
+    const { eventId, userId } = booking;
     const now = Date.now();
+
+    const transactItems = [
+      {
+        Update: {
+          TableName: MAIN_TABLE_NAME,
+          Key: { pk: `BOOKING#${bookingId}`, sk: "META" },
+          UpdateExpression:
+            "SET #status = :status, paymentId = :paymentId, paymentDate = :paymentDate",
+          ExpressionAttributeNames: { "#status": "status" },
+          ExpressionAttributeValues: {
+            ":status": "CONFIRMED",
+            ":paymentId": transactionId,
+            ":paymentDate": new Date(now).toISOString(),
+          },
+        },
+      },
+      ...ticketItems.map((ticket) => ({
+        Update: {
+          TableName: MAIN_TABLE_NAME,
+          Key: { pk: `EVENT#${eventId}`, sk: `TICKET#${ticket.ticketId}` },
+          UpdateExpression: "SET #status = :status, gsi1pk = :userPk",
+          ExpressionAttributeNames: { "#status": "status" },
+          ExpressionAttributeValues: {
+            ":status": "SOLD",
+            ":userPk": `USER#${userId}`,
+          },
+        },
+      })),
+      ...ticketItems.map((ticket) => ({
+        Delete: {
+          TableName: LOCK_TABLE_NAME,
+          Key: { lockId: ticket.ticketId },
+        },
+      })),
+    ];
 
     await docClient.send(
       new TransactWriteCommand({
-        TransactItems: [
-          {
-            Update: {
-              TableName: MAIN_TABLE_NAME,
-              Key: { pk: `BOOKING#${bookingId}`, sk: "META" },
-              UpdateExpression:
-                "SET #status = :status, paymentId = :paymentId, paymentDate = :paymentDate",
-              ExpressionAttributeNames: { "#status": "status" },
-              ExpressionAttributeValues: {
-                ":status": "CONFIRMED",
-                ":paymentId": transactionId,
-                ":paymentDate": new Date(now).toISOString(),
-              },
-            },
-          },
-          {
-            Update: {
-              TableName: MAIN_TABLE_NAME,
-              Key: { pk: `EVENT#${eventId}`, sk: `TICKET#${ticketId}` },
-              UpdateExpression: "SET #status = :status, gsi1pk = :userPk",
-              ExpressionAttributeNames: { "#status": "status" },
-              ExpressionAttributeValues: {
-                ":status": "SOLD",
-                ":userPk": `USER#${userId}`,
-              },
-            },
-          },
-          {
-            Delete: {
-              TableName: LOCK_TABLE_NAME,
-              Key: { lockId: ticketId },
-            },
-          },
-        ],
+        TransactItems: transactItems,
       }),
     );
 
