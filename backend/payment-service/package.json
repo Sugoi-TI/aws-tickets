@@ -19,7 +19,9 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "test": "tsx src/run-local.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "build": "esbuild src/index.ts --bundle --minify --platform=node --target=node20 --outfile=dist/index.js --external:@aws-sdk/*"
   }
 }
