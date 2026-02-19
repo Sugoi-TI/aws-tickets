@@ -2,12 +2,32 @@ import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { getEvents } from "./routes/getEvents";
 import { getEventById } from "./routes/getEventById";
 
+interface Route {
+  method: string;
+  pathPattern: string;
+  handler: "getEvents" | "getEventById";
+}
+
+const routes: Route[] = [
+  { method: "GET", pathPattern: "/events", handler: "getEvents" },
+  { method: "GET", pathPattern: "/event/{eventId}", handler: "getEventById" },
+];
+
 function matchRoute(method: string, path: string): "getEvents" | "getEventById" | null {
-  if (method === "GET" && path === "/events") {
-    return "getEvents";
-  }
-  if (method === "GET" && /^\/events\/[^/]+$/.test(path)) {
-    return "getEventById";
+  for (const route of routes) {
+    if (route.method !== method) continue;
+
+    const routeParts = route.pathPattern.split("/");
+    const pathParts = path.split("/");
+
+    if (routeParts.length !== pathParts.length) continue;
+
+    const isMatch = routeParts.every((part, i) => {
+      if (part.startsWith("{")) return true;
+      return part === pathParts[i];
+    });
+
+    if (isMatch) return route.handler;
   }
   return null;
 }

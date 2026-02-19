@@ -4,21 +4,37 @@ import { getBooking } from "./routes/getBooking";
 import { initiatePayment } from "./routes/initiatePayment";
 import { handleWebhook } from "./routes/handleWebhook";
 
+interface Route {
+  method: string;
+  pathPattern: string;
+  handler: "reserveTicket" | "getBooking" | "initiatePayment" | "handleWebhook";
+}
+
+const routes: Route[] = [
+  { method: "POST", pathPattern: "/bookings/reserve", handler: "reserveTicket" },
+  { method: "POST", pathPattern: "/bookings/pay", handler: "initiatePayment" },
+  { method: "POST", pathPattern: "/bookings/webhook", handler: "handleWebhook" },
+  { method: "GET", pathPattern: "/bookings/{bookingId}", handler: "getBooking" },
+];
+
 function matchRoute(
   method: string,
   path: string,
 ): "reserveTicket" | "getBooking" | "initiatePayment" | "handleWebhook" | null {
-  if (method === "POST" && path === "/bookings/reserve") {
-    return "reserveTicket";
-  }
-  if (method === "GET" && /^\/bookings\/[^/]+$/.test(path)) {
-    return "getBooking";
-  }
-  if (method === "POST" && path === "/bookings/pay") {
-    return "initiatePayment";
-  }
-  if (method === "POST" && path === "/bookings/webhook") {
-    return "handleWebhook";
+  for (const route of routes) {
+    if (route.method !== method) continue;
+
+    const routeParts = route.pathPattern.split("/");
+    const pathParts = path.split("/");
+
+    if (routeParts.length !== pathParts.length) continue;
+
+    const isMatch = routeParts.every((part, i) => {
+      if (part.startsWith("{")) return true;
+      return part === pathParts[i];
+    });
+
+    if (isMatch) return route.handler;
   }
   return null;
 }
