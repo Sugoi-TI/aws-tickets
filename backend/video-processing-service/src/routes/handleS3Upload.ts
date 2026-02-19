@@ -1,5 +1,5 @@
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
-import BitmovinApi, {
+import BitmovinApiModule, {
   CloudRegion,
   S3Input,
   S3Output,
@@ -32,6 +32,8 @@ const STATUS: { PROCESSING: VideoStatus; FAILED: VideoStatus } = {
   PROCESSING: "PROCESSING",
   FAILED: "FAILED",
 };
+
+const BitmovinApi = (BitmovinApiModule as any).default || BitmovinApiModule;
 
 const bitmovin = new BitmovinApi({ apiKey: BITMOVIN_API_KEY });
 
