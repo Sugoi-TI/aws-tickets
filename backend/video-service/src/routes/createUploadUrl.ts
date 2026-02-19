@@ -36,7 +36,7 @@ export async function createUploadUrl(event: APIGatewayProxyEventV2WithJWTAuthor
 
   const videoId = crypto.randomUUID();
   const now = new Date().toISOString();
-  const s3Key = `raw-uploads/${videoId}-${fileName}`;
+  const s3Key = `raw-uploads/${videoId}__${fileName}`;
 
   try {
     await docClient.send(

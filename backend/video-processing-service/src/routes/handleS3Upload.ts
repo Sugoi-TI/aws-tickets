@@ -49,7 +49,7 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
     }
 
     const fileName = s3Key.split("/")[1];
-    const videoId = fileName.split("-")[0];
+    const videoId = fileName.split("__")[0];
 
     console.log("Processing video:", videoId, "s3Key:", s3Key);
 
