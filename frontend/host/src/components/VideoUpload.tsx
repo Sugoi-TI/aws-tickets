@@ -6,8 +6,14 @@ import TextField from "@mui/material/TextField";
 import LinearProgress from "@mui/material/LinearProgress";
 import Alert from "@mui/material/Alert";
 import Paper from "@mui/material/Paper";
+import { fetchAuthSession } from "aws-amplify/auth";
 
 const API_URL = import.meta.env.VITE_API_URL;
+
+const getToken = async (): Promise<string> => {
+  const session = await fetchAuthSession();
+  return session.tokens?.accessToken?.toString() || "";
+};
 
 interface UploadResponse {
   videoId: string;
@@ -45,10 +51,12 @@ export const VideoUpload: React.FC = () => {
     setError(null);
 
     try {
+      const token = await getToken();
       const response = await fetch(`${API_URL}/videos/upload`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: token,
         },
         body: JSON.stringify({
           title,

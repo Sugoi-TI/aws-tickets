@@ -12,6 +12,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import VideocamIcon from "@mui/icons-material/Videocam";
+import { fetchAuthSession } from "aws-amplify/auth";
 import type { Video } from "@my-app/shared";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -33,10 +34,20 @@ export const VideoList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const getToken = async (): Promise<string> => {
+    const session = await fetchAuthSession();
+    return session.tokens?.accessToken?.toString() || "";
+  };
+
   const fetchVideos = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/videos`);
+      const token = await getToken();
+      const response = await fetch(`${API_URL}/videos`, {
+        headers: {
+          Authorization: token,
+        },
+      });
 
       if (!response.ok) {
         throw new Error("Failed to fetch videos");
