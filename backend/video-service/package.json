@@ -1,0 +1,23 @@
+{
+  "name": "video-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "sugoi_ti",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.975.0",
+    "@aws-sdk/lib-dynamodb": "^3.971.0",
+    "@aws-sdk/client-s3": "^3.975.0",
+    "@aws-sdk/s3-request-presigner": "^3.975.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.159",
+    "@types/node": "^25.0.9",
+    "esbuild": "^0.27.2",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --minify --platform=node --target=node20 --outfile=dist/index.js --external:@aws-sdk/*"
+  }
+}

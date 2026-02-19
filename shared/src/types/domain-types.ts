@@ -79,3 +79,17 @@ export interface Booking {
 
   tickets: BookingTicket[];
 }
+
+export type VideoStatus = "PENDING" | "UPLOADED" | "PROCESSING" | "PROCESSED" | "FAILED";
+
+export interface Video {
+  id: string;
+  title: string;
+  description?: string;
+  status: VideoStatus;
+  s3Key?: string;
+  cdnUrl?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -39,9 +39,14 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
           aws-region: eu-central-1
 
       - name: CDK Deploy
         run: |
           cd stack
           npx aws-cdk deploy --all --require-approval never
+        env:
+          BITMOVIN_API_KEY: ${{ vars.BITMOVIN_API_KEY }}
+          BITMOVIN_ACCESS_KEY: ${{ vars.BITMOVIN_ACCESS_KEY }}
+          BITMOVIN_SECRET_ACCESS_KEY: ${{ vars.BITMOVIN_SECRET_ACCESS_KEY }}

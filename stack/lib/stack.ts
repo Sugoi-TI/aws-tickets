@@ -8,6 +8,7 @@ import * as apigw from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3notifications from "aws-cdk-lib/aws-s3-notifications";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
@@ -16,6 +17,9 @@ import * as path from "path";
 const ENTITY_NAMES = {
   MAIN_TABLE: "MainTable",
   LOCK_TABLE: "TicketsLockTable",
+
+  VIDEO_TABLE: "VideoMetadataTable",
+  VIDEO_BUCKET: "VideoBucket",
 
   API_GATEWAY: "EventsApi",
   USER_POOL: "UserPool",
@@ -26,9 +30,12 @@ const ENTITY_NAMES = {
   SEARCH_SERVICE: "SearchService",
   BOOKING_SERVICE: "BookingService",
   PAYMENT_SERVICE: "PaymentService",
+  VIDEO_SERVICE: "VideoService",
+  VIDEO_PROCESSING_SERVICE: "VideoProcessingService",
 
   FRONTEND_BUCKET: "FrontendBucket",
   FRONTEND_DISTRIBUTION: "FrontendDistribution",
+  VIDEO_CLOUDFRONT: "VideoCloudFront",
 };
 
 export class Stack extends cdk.Stack {
@@ -100,7 +107,50 @@ export class Stack extends cdk.Stack {
     });
 
     // ========================================================================
-    // 3. API GATEWAY (HTTP API) - Defined early for environment variables
+    // 2.3 VIDEO SERVICES (S3 + DynamoDB + CloudFront)
+    // ========================================================================
+
+    // Video S3 Bucket (for raw uploads and processed outputs)
+    const videoBucket = new s3.Bucket(this, ENTITY_NAMES.VIDEO_BUCKET, {
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
+          allowedOrigins: ["*"],
+          allowedHeaders: ["*"],
+        },
+      ],
+    });
+
+    // Video Metadata DynamoDB Table
+    const videoTable = new dynamodb.Table(this, ENTITY_NAMES.VIDEO_TABLE, {
+      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+    });
+
+    videoTable.addGlobalSecondaryIndex({
+      indexName: "GSI1",
+      partitionKey: { name: "gsi1pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "gsi1sk", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // CloudFront for Video CDN
+    const videoCloudFront = new cloudfront.Distribution(this, ENTITY_NAMES.VIDEO_CLOUDFRONT, {
+      defaultBehavior: {
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        compress: true,
+        origin: origins.S3BucketOrigin.withOriginAccessControl(videoBucket),
+      },
+      defaultRootObject: "index.m3u8",
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_ALL,
+      enabled: true,
+    });
+
+    // ========================================================================
+    // 3. API GATEWAY (HTTP API)
     // ========================================================================
 
     const httpApi = new apigw.HttpApi(this, ENTITY_NAMES.API_GATEWAY, {
@@ -118,7 +168,7 @@ export class Stack extends cdk.Stack {
           apigw.CorsHttpMethod.POST,
           apigw.CorsHttpMethod.OPTIONS,
         ],
-        allowOrigins: ["*"], // TODO replace with proper domain
+        allowOrigins: ["*"],
       },
     });
 
@@ -178,6 +228,46 @@ export class Stack extends cdk.Stack {
       timeout: cdk.Duration.seconds(10),
     });
 
+    // --- Video Service (Upload Init & Listing) ---
+    const videoService = new nodejs.NodejsFunction(this, ENTITY_NAMES.VIDEO_SERVICE, {
+      ...commonLambdaProps,
+      entry: path.join(__dirname, "../../backend/video-service/src/index.ts"),
+      handler: "handler",
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        VIDEO_TABLE_NAME: videoTable.tableName,
+        VIDEO_BUCKET_NAME: videoBucket.bucketName,
+      },
+    });
+
+    // --- Video Processing Service (S3 Trigger & Webhook) ---
+    const videoProcessingService = new nodejs.NodejsFunction(
+      this,
+      ENTITY_NAMES.VIDEO_PROCESSING_SERVICE,
+      {
+        ...commonLambdaProps,
+        entry: path.join(__dirname, "../../backend/video-processing-service/src/index.ts"),
+        handler: "handler",
+        timeout: cdk.Duration.seconds(300),
+        environment: {
+          VIDEO_TABLE_NAME: videoTable.tableName,
+          VIDEO_BUCKET_NAME: videoBucket.bucketName,
+          BITMOVIN_API_KEY: process.env.BITMOVIN_API_KEY || "",
+          BITMOVIN_ACCESS_KEY: process.env.BITMOVIN_ACCESS_KEY || "",
+          BITMOVIN_SECRET_ACCESS_KEY: process.env.BITMOVIN_SECRET_ACCESS_KEY || "",
+          CLOUDFRONT_DOMAIN: videoCloudFront.distributionDomainName,
+          WEBHOOK_URL: `${httpApi.url}webhook/bitmovin`,
+        },
+      },
+    );
+
+    // Add S3 trigger to video processing service
+    videoBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3notifications.LambdaDestination(videoProcessingService),
+      { prefix: "raw-uploads/" },
+    );
+
     // ========================================================================
     // 5. PERMISSIONS (IAM)
     // ========================================================================
@@ -189,6 +279,12 @@ export class Stack extends cdk.Stack {
     lockTable.grantReadWriteData(bookingService);
     lockTable.grantReadData(eventService);
 
+    // Video permissions
+    videoBucket.grantReadWrite(videoService);
+    videoBucket.grantReadWrite(videoProcessingService);
+    videoTable.grantReadWriteData(videoService);
+    videoTable.grantReadWriteData(videoProcessingService);
+
     // ========================================================================
     // 6. API GATEWAY ROUTES
     // ========================================================================
@@ -197,6 +293,11 @@ export class Stack extends cdk.Stack {
     const searchIntegration = new integrations.HttpLambdaIntegration("SearchInt", searchService);
     const bookingIntegration = new integrations.HttpLambdaIntegration("BookingInt", bookingService);
     const paymentIntegration = new integrations.HttpLambdaIntegration("PaymentInt", paymentService);
+    const videoIntegration = new integrations.HttpLambdaIntegration("VideoInt", videoService);
+    const videoProcessingIntegration = new integrations.HttpLambdaIntegration(
+      "VideoProcessingInt",
+      videoProcessingService,
+    );
 
     // --- ROUTES ---
 
@@ -231,15 +332,37 @@ export class Stack extends cdk.Stack {
       integration: bookingIntegration,
     });
 
+    // Video routes
+    httpApi.addRoutes({
+      path: "/videos/upload",
+      methods: [apigw.HttpMethod.POST],
+      integration: videoIntegration,
+      authorizer: authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/videos",
+      methods: [apigw.HttpMethod.GET],
+      integration: videoIntegration,
+      authorizer: authorizer,
+    });
+
+    httpApi.addRoutes({
+      path: "/webhook/bitmovin",
+      methods: [apigw.HttpMethod.POST],
+      integration: videoProcessingIntegration,
+      authorizer: authorizer,
+    });
+
     // 2. With Auth
-    const secureRoutes = [
+    const secureBookingRoutes = [
       { path: "/bookings/pay", method: apigw.HttpMethod.POST },
       { path: "/bookings/reserve", method: apigw.HttpMethod.POST },
       { path: "/bookings/cancel", method: apigw.HttpMethod.POST },
       { path: "/bookings/{bookingId}", method: apigw.HttpMethod.GET },
     ];
 
-    secureRoutes.forEach((route) => {
+    secureBookingRoutes.forEach((route) => {
       httpApi.addRoutes({
         path: route.path,
         methods: [route.method],
@@ -331,6 +454,18 @@ export class Stack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "LockTableName", {
       value: lockTable.tableName,
+    });
+
+    new cdk.CfnOutput(this, "VideoBucketName", {
+      value: videoBucket.bucketName,
+    });
+
+    new cdk.CfnOutput(this, "VideoTableName", {
+      value: videoTable.tableName,
+    });
+
+    new cdk.CfnOutput(this, "VideoCloudFrontDomain", {
+      value: videoCloudFront.distributionDomainName,
     });
   }
 }
