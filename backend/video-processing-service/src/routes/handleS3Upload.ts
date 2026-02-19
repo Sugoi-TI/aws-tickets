@@ -7,8 +7,6 @@ import BitmovinApiModule, {
   StreamInput,
   Stream,
   EncodingOutput,
-  AclEntry,
-  AclPermission,
   H264VideoConfiguration,
   AacAudioConfiguration,
   PresetConfiguration,
@@ -16,6 +14,11 @@ import BitmovinApiModule, {
   StreamSelectionMode,
   Fmp4Muxing,
   HlsManifest,
+  AudioMediaInfo,
+  StreamInfo,
+  StartEncodingRequest,
+  ManifestGenerator,
+  ManifestResource,
 } from "@bitmovin/api-sdk";
 import { type VideoStatus } from "@my-app/shared";
 import {
@@ -34,7 +37,6 @@ const STATUS: { PROCESSING: VideoStatus; FAILED: VideoStatus } = {
 };
 
 const BitmovinApi = (BitmovinApiModule as any).default || BitmovinApiModule;
-
 const bitmovin = new BitmovinApi({ apiKey: BITMOVIN_API_KEY });
 
 export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: string } } }>) {
@@ -122,7 +124,7 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
       const videoStreamInput = new StreamInput({
         inputId: input.id,
         inputPath: s3Key,
-        selectionMode: StreamSelectionMode.AUTO,
+        selectionMode: StreamSelectionMode.VIDEO_RELATIVE,
       });
 
       const videoStream = await bitmovin.encoding.encodings.streams.create(
@@ -138,8 +140,7 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
       const audioStreamInput = new StreamInput({
         inputId: input.id,
         inputPath: s3Key,
-        selectionMode: StreamSelectionMode.AUTO,
-        position: 0,
+        selectionMode: StreamSelectionMode.AUDIO_RELATIVE,
       });
 
       const audioStream = await bitmovin.encoding.encodings.streams.create(
@@ -152,40 +153,89 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
 
       console.log("Created audio stream:", audioStream.id);
 
-      const aclEntry = new AclEntry({
-        permission: AclPermission.PUBLIC_READ,
+      const videoOutput = new EncodingOutput({
+        outputPath: `processed-outputs/${videoId}/video/`,
+        outputId: output.id,
       });
 
-      const encodingOutput = new EncodingOutput({
+      const audioOutput = new EncodingOutput({
+        outputPath: `processed-outputs/${videoId}/audio/`,
+        outputId: output.id,
+      });
+
+      const manifestOutput = new EncodingOutput({
         outputPath: `processed-outputs/${videoId}/`,
         outputId: output.id,
-        acl: [aclEntry],
       });
 
-      await bitmovin.encoding.encodings.muxings.fmp4.create(
+      const videoMuxing = await bitmovin.encoding.encodings.muxings.fmp4.create(
         encoding.id!,
         new Fmp4Muxing({
-          outputs: [encodingOutput],
-          streams: [
-            new MuxingStream({ streamId: videoStream.id }),
-            new MuxingStream({ streamId: audioStream.id }),
-          ],
+          outputs: [videoOutput],
+          streams: [new MuxingStream({ streamId: videoStream.id })],
           segmentLength: 4,
         }),
       );
 
-      console.log("Created fMP4 muxing");
+      console.log("Created Video fMP4 muxing");
 
-      await bitmovin.encoding.manifests.hls.create(
-        new HlsManifest({
-          name: `manifest-${videoId}`,
-          outputs: [encodingOutput],
+      const audioMuxing = await bitmovin.encoding.encodings.muxings.fmp4.create(
+        encoding.id!,
+        new Fmp4Muxing({
+          outputs: [audioOutput],
+          streams: [new MuxingStream({ streamId: audioStream.id })],
+          segmentLength: 4,
         }),
       );
 
-      console.log("Created HLS manifest");
+      console.log("Created Audio fMP4 muxing");
 
-      await bitmovin.encoding.encodings.start(encoding.id!);
+      const hlsManifest = await bitmovin.encoding.manifests.hls.create(
+        new HlsManifest({
+          name: `manifest-${videoId}`,
+          manifestName: "master.m3u8",
+          outputs: [manifestOutput],
+        }),
+      );
+
+      console.log("Created HLS manifest base");
+
+      await bitmovin.encoding.manifests.hls.media.audio.create(
+        hlsManifest.id!,
+        new AudioMediaInfo({
+          name: "Audio Track",
+          groupId: "audio_group",
+          segmentPath: "audio",
+          encodingId: encoding.id!,
+          streamId: audioStream.id!,
+          muxingId: audioMuxing.id!,
+          language: "en",
+          uri: "audio.m3u8",
+        }),
+      );
+
+      console.log("Attached audio to manifest");
+
+      await bitmovin.encoding.manifests.hls.streams.create(
+        hlsManifest.id!,
+        new StreamInfo({
+          audio: "audio_group",
+          segmentPath: "video",
+          encodingId: encoding.id!,
+          streamId: videoStream.id!,
+          muxingId: videoMuxing.id!,
+          uri: "video.m3u8",
+        }),
+      );
+
+      console.log("Attached video to manifest");
+
+      const startEncodingRequest = new StartEncodingRequest({
+        manifestGenerator: ManifestGenerator.V2,
+        vodHlsManifests: [new ManifestResource({ manifestId: hlsManifest.id! })],
+      });
+
+      await bitmovin.encoding.encodings.start(encoding.id!, startEncodingRequest);
 
       console.log("Started encoding for video:", videoId, "encodingId:", encoding.id);
     } catch (e) {
