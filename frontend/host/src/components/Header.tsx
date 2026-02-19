@@ -7,6 +7,7 @@ import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
+import { useNavigate, useLocation } from "react-router-dom";
 import type { AuthUser } from "aws-amplify/auth";
 
 interface HeaderProps {
@@ -15,7 +16,11 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ user, signOut }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const username = user?.username || user?.signInDetails?.loginId || "User";
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <AppBar position="static">
@@ -24,7 +29,21 @@ export const Header: React.FC<HeaderProps> = ({ user, signOut }) => {
           AWS Tickets
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Button
+            color="inherit"
+            onClick={() => navigate("/")}
+            sx={{ fontWeight: isActive("/") ? "bold" : "normal" }}
+          >
+            Events
+          </Button>
+          <Button
+            color="inherit"
+            onClick={() => navigate("/videos")}
+            sx={{ fontWeight: isActive("/videos") ? "bold" : "normal" }}
+          >
+            Videos
+          </Button>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: 2 }}>
             <IconButton color="inherit">
               <AccountCircle />
             </IconButton>
