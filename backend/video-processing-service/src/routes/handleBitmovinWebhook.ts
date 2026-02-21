@@ -25,7 +25,7 @@ export async function handleBitmovinWebhook(event: { body: string }) {
     };
   }
 
-  if (payload.type === "ENCODING_ERROR") {
+  if (payload.eventType === "ENCODING_ERROR") {
     console.error("Encoding failed:", payload);
     // TODO: Update video status to FAILED
     return {
@@ -34,8 +34,8 @@ export async function handleBitmovinWebhook(event: { body: string }) {
     };
   }
 
-  if (payload.type !== "ENCODING_FINISHED") {
-    console.log("Ignoring webhook type:", payload.type);
+  if (payload.eventType !== "ENCODING_FINISHED") {
+    console.log("Ignoring webhook type:", payload.eventType);
     return {
       statusCode: 200,
       body: JSON.stringify({ message: "Ignored" }),
@@ -78,7 +78,7 @@ export async function handleBitmovinWebhook(event: { body: string }) {
       };
     }
 
-    const manifestPath = `processed-outputs/${videoId}/index.m3u8`;
+    const manifestPath = `processed-outputs/${videoId}/master.m3u8`;
     const cdnUrl = `https://${CLOUDFRONT_DOMAIN}/${manifestPath}`;
 
     await updateVideoStatus(videoId, STATUS.PROCESSED, {

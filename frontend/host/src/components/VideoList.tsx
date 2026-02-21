@@ -12,8 +12,14 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import VideocamIcon from "@mui/icons-material/Videocam";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 import { fetchAuthSession } from "aws-amplify/auth";
 import type { Video } from "@my-app/shared";
+import { VideoPlayer } from "./VideoPlayer";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -33,6 +39,8 @@ export const VideoList: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
 
   const getToken = async (): Promise<string> => {
     const session = await fetchAuthSession();
@@ -67,8 +75,12 @@ export const VideoList: React.FC = () => {
     fetchVideos();
   }, []);
 
-  const handlePlay = (videoId: string) => {
-    navigate(`/videos/${videoId}`);
+  const handlePlay = (video: Video) => {
+    setSelectedVideo(video);
+  };
+
+  const handleClosePlayer = () => {
+    setSelectedVideo(null);
   };
 
   if (loading) {
@@ -132,7 +144,7 @@ export const VideoList: React.FC = () => {
                     size="small"
                     startIcon={<PlayArrowIcon />}
                     disabled={video.status !== "PROCESSED"}
-                    onClick={() => handlePlay(video.id)}
+                    onClick={() => handlePlay(video)}
                     fullWidth
                   >
                     {video.status === "PROCESSED" ? "Watch" : video.status}
@@ -143,6 +155,33 @@ export const VideoList: React.FC = () => {
           ))}
         </Grid>
       )}
+
+      {/* Video Player Modal */}
+      <Dialog open={Boolean(selectedVideo)} onClose={handleClosePlayer} maxWidth="md" fullWidth>
+        <DialogTitle
+          sx={{
+            m: 0,
+            p: 2,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          {selectedVideo?.title}
+          <IconButton
+            aria-label="close"
+            onClick={handleClosePlayer}
+            sx={{
+              color: (theme) => theme.palette.grey[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 0, backgroundColor: "#000" }}>
+          {selectedVideo && <VideoPlayer video={selectedVideo} />}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
