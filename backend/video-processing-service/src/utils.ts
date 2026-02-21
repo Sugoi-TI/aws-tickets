@@ -63,12 +63,28 @@ export async function updateVideoStatus(
 }
 
 export type BitmovinWebhookPayload = {
-  type: string;
+  id: string;
   eventId: string;
-  jobId: string;
-  outputs?: Array<{
+  createdAt: string;
+  modifiedAt: string;
+  orgId: string;
+  userId: string;
+  notificationId: string;
+  resourceId: string;
+  resourceType: "ENCODING" | string;
+  type: "WEBHOOK" | string;
+  eventType: "ENCODING_FINISHED" | string;
+  category: "ENCODING" | string;
+  state: "FIRED" | string;
+  triggeredAt: string;
+  triggeredForResourceId: string;
+  internal: boolean;
+  encoding: {
     id: string;
-    path: string;
-  }>;
-  errorMessage?: string;
+    type: "VOD" | "LIVE" | string;
+    name: string;
+    encoderVersion: string;
+    cloudRegion: string;
+  };
+  webhookId: string;
 };

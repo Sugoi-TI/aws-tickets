@@ -25,6 +25,15 @@ export async function handleBitmovinWebhook(event: { body: string }) {
     };
   }
 
+  if (payload.type === "ENCODING_ERROR") {
+    console.error("Encoding failed:", payload);
+    // TODO: Update video status to FAILED
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: "Encoding failed handled" }),
+    };
+  }
+
   if (payload.type !== "ENCODING_FINISHED") {
     console.log("Ignoring webhook type:", payload.type);
     return {
@@ -33,27 +42,23 @@ export async function handleBitmovinWebhook(event: { body: string }) {
     };
   }
 
-  // jobId can be used to look up video if we store it during encoding creation
-  // For now we extract videoId from output path
-  const outputs = payload.outputs || [];
+  const encodingName = payload.encoding?.name;
 
-  if (outputs.length === 0) {
-    console.error("No outputs found in webhook payload");
+  if (!encodingName || !encodingName.startsWith("encoding-")) {
+    console.error("Invalid encoding name in webhook:", encodingName);
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: "No outputs found" }),
+      body: JSON.stringify({ message: "Invalid encoding name" }),
     };
   }
 
-  const outputPath = outputs[0].path;
-
-  const videoId = outputPath.split("/")[1];
+  const videoId = encodingName.replace("encoding-", "");
 
   if (!videoId) {
-    console.error("Could not extract videoId from output path:", outputPath);
+    console.error("Could not extract videoId from encoding name:", encodingName);
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: "Invalid output path" }),
+      body: JSON.stringify({ message: "Invalid videoId extraction" }),
     };
   }
 
