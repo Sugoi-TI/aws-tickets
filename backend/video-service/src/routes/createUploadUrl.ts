@@ -45,6 +45,8 @@ export async function createUploadUrl(event: APIGatewayProxyEventV2WithJWTAuthor
         Item: {
           pk: `VIDEO#${videoId}`,
           sk: "META",
+          gsi1pk: "VIDEO#META",
+          gsi1sk: now,
           id: videoId,
           title,
           description: description || "",
