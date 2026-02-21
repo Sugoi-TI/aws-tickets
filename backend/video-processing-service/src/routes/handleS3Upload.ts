@@ -19,6 +19,8 @@ import BitmovinApiModule, {
   StartEncodingRequest,
   ManifestGenerator,
   ManifestResource,
+  Webhook,
+  WebhookHttpMethod,
 } from "@bitmovin/api-sdk";
 import { type VideoStatus } from "@my-app/shared";
 import {
@@ -29,6 +31,7 @@ import {
   docClient,
   updateVideoStatus,
   VIDEO_BUCKET_NAME,
+  WEBHOOK_URL,
 } from "../utils";
 
 const STATUS: { PROCESSING: VideoStatus; FAILED: VideoStatus } = {
@@ -229,6 +232,26 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
       );
 
       console.log("Attached video to manifest");
+
+      if (WEBHOOK_URL) {
+        await bitmovin.notifications.webhooks.encoding.encodings.finished.createByEncodingId(
+          encoding.id!,
+          new Webhook({
+            url: WEBHOOK_URL,
+            method: WebhookHttpMethod.POST,
+          }),
+        );
+
+        await bitmovin.notifications.webhooks.encoding.encodings.error.createByEncodingId(
+          encoding.id!,
+          new Webhook({
+            url: WEBHOOK_URL,
+            method: WebhookHttpMethod.POST,
+          }),
+        );
+
+        console.log("Attached webhooks to encoding");
+      }
 
       const startEncodingRequest = new StartEncodingRequest({
         manifestGenerator: ManifestGenerator.V2,

@@ -351,7 +351,6 @@ export class Stack extends cdk.Stack {
       path: "/webhook/bitmovin",
       methods: [apigw.HttpMethod.POST],
       integration: videoProcessingIntegration,
-      authorizer: authorizer,
     });
 
     // 2. With Auth
