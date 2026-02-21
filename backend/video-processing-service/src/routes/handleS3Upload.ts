@@ -95,17 +95,6 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
 
       console.log("Created output:", output.id);
 
-      const videoCodecConfig = await bitmovin.encoding.configurations.video.h264.create(
-        new H264VideoConfiguration({
-          name: `video-${videoId}`,
-          presetConfiguration: PresetConfiguration.VOD_STANDARD,
-          height: 720,
-          bitrate: 2000000,
-        }),
-      );
-
-      console.log("Created video codec config:", videoCodecConfig.id);
-
       const audioCodecConfig = await bitmovin.encoding.configurations.audio.aac.create(
         new AacAudioConfiguration({
           name: `audio-${videoId}`,
@@ -124,22 +113,6 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
 
       console.log("Created encoding:", encoding.id);
 
-      const videoStreamInput = new StreamInput({
-        inputId: input.id,
-        inputPath: s3Key,
-        selectionMode: StreamSelectionMode.VIDEO_RELATIVE,
-      });
-
-      const videoStream = await bitmovin.encoding.encodings.streams.create(
-        encoding.id!,
-        new Stream({
-          inputStreams: [videoStreamInput],
-          codecConfigId: videoCodecConfig.id,
-        }),
-      );
-
-      console.log("Created video stream:", videoStream.id);
-
       const audioStreamInput = new StreamInput({
         inputId: input.id,
         inputPath: s3Key,
@@ -156,31 +129,10 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
 
       console.log("Created audio stream:", audioStream.id);
 
-      const videoOutput = new EncodingOutput({
-        outputPath: `processed-outputs/${videoId}/video/`,
-        outputId: output.id,
-      });
-
       const audioOutput = new EncodingOutput({
         outputPath: `processed-outputs/${videoId}/audio/`,
         outputId: output.id,
       });
-
-      const manifestOutput = new EncodingOutput({
-        outputPath: `processed-outputs/${videoId}/`,
-        outputId: output.id,
-      });
-
-      const videoMuxing = await bitmovin.encoding.encodings.muxings.fmp4.create(
-        encoding.id!,
-        new Fmp4Muxing({
-          outputs: [videoOutput],
-          streams: [new MuxingStream({ streamId: videoStream.id })],
-          segmentLength: 4,
-        }),
-      );
-
-      console.log("Created Video fMP4 muxing");
 
       const audioMuxing = await bitmovin.encoding.encodings.muxings.fmp4.create(
         encoding.id!,
@@ -192,6 +144,11 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
       );
 
       console.log("Created Audio fMP4 muxing");
+
+      const manifestOutput = new EncodingOutput({
+        outputPath: `processed-outputs/${videoId}/`,
+        outputId: output.id,
+      });
 
       const hlsManifest = await bitmovin.encoding.manifests.hls.create(
         new HlsManifest({
@@ -219,19 +176,66 @@ export async function handleS3UploadEvent(records: Array<{ s3: { object: { key: 
 
       console.log("Attached audio to manifest");
 
-      await bitmovin.encoding.manifests.hls.streams.create(
-        hlsManifest.id!,
-        new StreamInfo({
-          audio: "audio_group",
-          segmentPath: "video",
-          encodingId: encoding.id!,
-          streamId: videoStream.id!,
-          muxingId: videoMuxing.id!,
-          uri: "video.m3u8",
-        }),
-      );
+      const videoProfiles = [
+        { height: 1080, bitrate: 4800000, name: "1080p" },
+        { height: 720, bitrate: 2400000, name: "720p" },
+        { height: 480, bitrate: 1200000, name: "480p" },
+      ];
 
-      console.log("Attached video to manifest");
+      for (const profile of videoProfiles) {
+        const videoCodecConfig = await bitmovin.encoding.configurations.video.h264.create(
+          new H264VideoConfiguration({
+            name: `video-${profile.name}-${videoId}`,
+            presetConfiguration: PresetConfiguration.VOD_STANDARD,
+            height: profile.height,
+            bitrate: profile.bitrate,
+          }),
+        );
+
+        const videoStreamInput = new StreamInput({
+          inputId: input.id,
+          inputPath: s3Key,
+          selectionMode: StreamSelectionMode.VIDEO_RELATIVE,
+        });
+
+        const videoStream = await bitmovin.encoding.encodings.streams.create(
+          encoding.id!,
+          new Stream({
+            inputStreams: [videoStreamInput],
+            codecConfigId: videoCodecConfig.id,
+          }),
+        );
+
+        const videoOutput = new EncodingOutput({
+          outputPath: `processed-outputs/${videoId}/video/${profile.name}/`,
+          outputId: output.id,
+        });
+
+        const videoMuxing = await bitmovin.encoding.encodings.muxings.fmp4.create(
+          encoding.id!,
+          new Fmp4Muxing({
+            outputs: [videoOutput],
+            streams: [new MuxingStream({ streamId: videoStream.id })],
+            segmentLength: 4,
+          }),
+        );
+
+        await bitmovin.encoding.manifests.hls.streams.create(
+          hlsManifest.id!,
+          new StreamInfo({
+            audio: "audio_group",
+            segmentPath: `video/${profile.name}`,
+            encodingId: encoding.id!,
+            streamId: videoStream.id!,
+            muxingId: videoMuxing.id!,
+            uri: `video_${profile.name}.m3u8`,
+          }),
+        );
+
+        console.log(`Created video profile: ${profile.name}`);
+      }
+
+      console.log("Attached videos to manifest");
 
       if (WEBHOOK_URL) {
         await bitmovin.notifications.webhooks.encoding.encodings.finished.createByEncodingId(
